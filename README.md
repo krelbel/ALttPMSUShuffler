@@ -10,10 +10,11 @@ random to copy to this directory as shuffled-$N.pcm.
 Usage:
 1) Copy this script to a new subdirectory in the directory containing all
    of your current MSU packs
-2) python Main.py in terminal to execute the script to delete any old pack
-   in this directory and generate a new one
+2) Run Main.py to execute the script to delete any old pack in this directory
+   and generate a new one.  Track names picked will be saved in "output.log"
+   (cleared on reruns)
 3) (first time only) Create a new empty file named "shuffled.msu" in this
    directory
 4) Copy the ALttP Randomizer ROM (with background music enabled) to this
    directory and rename it to "shuffled.sfc".  Load it in an MSU-compatible
-   emulator (works well with Snes9x 1.60
+   emulator (works well with Snes9x 1.60)
