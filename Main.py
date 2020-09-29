@@ -113,6 +113,13 @@ titles = [
 #light world overworld music)
 nonloopingtracks = [1, 8, 10, 19, 29, 33, 34]
 
+#List of generic and specific boss tracks.  Weighted so generic tracks are more likely to show up since
+#otherwise specific tracks get shuffled in way more often.
+genericboss = [21, 21, 21, 21, 21, 21, 21, 21, 21, 21]
+genericdungeon = [17, 17, 17, 17, 17, 17, 17, 22, 22, 22, 22, 22, 22, 22]
+specificdungeon = [35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 59]
+specificboss = [47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58]
+
 def delete_old_msu(args):
     if os.path.exists("output.log"):
         os.remove("output.log")
@@ -171,6 +178,24 @@ def generate_shuffled_msu(args):
     random.shuffle(shuffledloopingfoundtracks)
     nonloopingfoundtracks = [i for i in foundtracks if i in nonloopingtracks]
 
+	#Merge some lists
+    bosstracks = genericboss + specificboss
+    dungeontracks = genericdungeon + specificdungeon
+    #Shuffle shuffle shuffle
+    shuffledbosstracks = bosstracks.copy()
+    random.shuffle(shuffledbosstracks)
+    shuffleddungeontracks = dungeontracks.copy()
+    random.shuffle(shuffleddungeontracks)
+    #Also I guess we should remove tracks if they're not present
+    #There's probably a better way to do this but python is a dumb language #hottakes
+    for i in shuffledbosstracks:
+        if i not in foundtracks:
+            shuffledbosstracks.pop()
+
+    for i in shuffleddungeontracks:
+        if i not in foundtracks:
+            shuffleddungeontracks.pop()
+
     #For all found non-looping tracks, pick a random track with a matching
     #track number from a random pack in the target directory.
     logger.info("Non-looping tracks:")
@@ -191,6 +216,13 @@ def generate_shuffled_msu(args):
         else:
             dst = i
             src = i
+
+            #Okay we're shuffling extra tracks so do that I guess
+            if (args.xshuffle):
+                if (i in specificdungeon):
+                    src = random.choice(shuffleddungeontracks)
+                elif (i in specificboss):
+                    src = random.choice(shuffledbosstracks)
             printsrc = False
         pick_random_track(logger, args, src, dst, printsrc)
 
@@ -211,6 +243,8 @@ if __name__ == '__main__':
     parser.add_argument('--trackshuffle', help='Choose each looping track randomly from all looping tracks from all packs, rather than the default behavior of only exchanging each track with that same track from a random pack.', action='store_true')
     parser.add_argument('--singleshuffle', help='Choose each looping track randomly from all looping tracks from a single MSU pack.  Enter the path to a subfolder in the parent directory containing a single MSU pack.')
     parser.add_argument('--version', help='Print version number and exit.', action='store_true')
+    parser.add_argument('--xshuffle', help='Shuffles generic dungeon/boss tracks into specific dungeon/boss tracks.', action='store_true')
+
 
     args = parser.parse_args()
 
@@ -219,4 +253,3 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(message)s', level=loglevel)
 
     main(args)
-
