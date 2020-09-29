@@ -29,6 +29,9 @@ __version__ = '0.3-dev'
 #      "python Main.py --singleshuffle ../your-msu-pack-name-here", behavior is
 #      the same as with --trackshuffle, but a single MSU pack of your choice is
 #      chosen as the shuffled source for all tracks in the generated pack.
+#    - If run in the command line as
+#      "python Main.py --xshuffle", behavior will only shuffle dungeon and
+#      boss tracks. This is more-interesting with Extended MSU Packs.
 # 3) (first time only) Create a new empty file named "shuffled.msu" in this
 #    directory
 # 4) Copy the ALttP Randomizer ROM (with background music enabled) to this
@@ -113,12 +116,15 @@ titles = [
 #light world overworld music)
 nonloopingtracks = [1, 8, 10, 19, 29, 33, 34]
 
-#List of generic and specific boss tracks.  Weighted so generic tracks are more likely to show up since
-#otherwise specific tracks get shuffled in way more often.
-genericboss = [21, 21, 21, 21, 21, 21, 21, 21, 21, 21]
-genericdungeon = [17, 17, 17, 17, 17, 17, 17, 22, 22, 22, 22, 22, 22, 22]
-specificdungeon = [35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 59]
-specificboss = [47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58]
+#List of generic and specific dungeon & boss tracks.  Weighted so generic
+#tracks are more likely to show up since otherwise specific tracks get
+#shuffled in way more often.
+genericboss = [21] * 10
+genericdungeon = [0] * 14
+genericdungeon[:7] = [17] * 7
+genericdungeon[7:] = [22] * 7
+specificdungeon = list(range(35,46)) + [59]
+specificboss = list(range(47,58))
 
 def delete_old_msu(args):
     if os.path.exists("output.log"):
