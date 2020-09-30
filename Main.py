@@ -1,10 +1,10 @@
-import logging
 import argparse
+import logging
 import os
-import random
 from pathlib import Path
-import shutil
+import random
 import re
+import shutil
 
 __version__ = '0.3-dev'
 
