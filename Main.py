@@ -6,6 +6,7 @@ import random
 import re
 import shutil
 import glob
+import sys
 
 __version__ = '0.3-dev'
 
@@ -13,34 +14,51 @@ __version__ = '0.3-dev'
 # MSU-1 packs.
 #
 # Usage:
+#
 # 1) Copy this script to a new subdirectory in the directory containing all
 #    of your current MSU packs
+#
 # 2) Run Main.py to execute the script to delete any old pack in this directory
 #    and generate a new one.  Track names picked will be saved in "output.log"
 #    (cleared on reruns)
+#
 #    - By default, the generated pack will pick each track from a matching
 #      track number in a random MSU pack in the parent directory of this
-#      script.
-#    - If run in the command line as "python Main.py --trackshuffle", behavior
+#      script.  For dungeon-specific or boss-specific tracks, if the random
+#      pack chosen isn't an extended MSU pack, the generic dungeon/boss music
+#      is chosen instead.
+#
+#      Note that if you ONLY have non-extended packs, this
+#      default behavior will create an extended pack, which (like all extended
+#      packs) prevents you from using music cues to distinguish pendant from
+#      crystal dungeons.  If you want this, use --basicshuffle instead.
+#
+#    - If run in the command line as "python Main.py --basicshuffle", each
+#      track is chosen from the same track from a random pack.  If you have any
+#      extended packs, the dungeon/boss themes from non-extended packs will
+#      never be chosen.
+#
+#    - If run in the command line as "python Main.py --fullshuffle", behavior
 #      for non-looping tracks (short fanfares, portals, etc.) remains as
 #      default, but looping tracks will be in shuffled order, so each track
 #      in the generated pack is chosen from a random track number in a random
 #      MSU pack.  Pick this if you like shop music in Ganon's Tower.
+#
 #    - If run in the command line as
 #      "python Main.py --singleshuffle ../your-msu-pack-name-here", behavior is
-#      the same as with --trackshuffle, but a single MSU pack of your choice is
+#      the same as with --fullshuffle, but a single MSU pack of your choice is
 #      chosen as the shuffled source for all tracks in the generated pack.
-#    - If run in the command line as
-#      "python Main.py --xshuffle", behavior will only shuffle dungeon and
-#      boss tracks. This is more-interesting with Extended MSU Packs.
 #
 #  Debugging options (not necessary for normal use):
+#
 #    - This script uses hardlinks instead of copies by default to reduce disk
 #      usage and increase speed; the --realcopy option can be used to create
 #      real copies instead of hardlinks.
+#
 #    - The --debug option can be used to make this script print the filesystem
 #      commands (deleting, creating, renaming files) it would have executed
 #      instead of executing them.
+#
 # 3) Copy the ALttP Randomizer ROM (with background music enabled) to this
 #    directory and rename it to "shuffled.sfc".  Load it in an MSU-compatible
 #    emulator (works well with Snes9x 1.60)
@@ -63,12 +81,12 @@ titles = [
 "14 - Minigame",
 "15 - Skull Woods Overworld",
 "16 - Castle",
-"17 - Light World Dungeon",
+"17 - Generic Light World Dungeon",
 "18 - Cave",
 "19 - Boss Victory",
 "20 - Sanctuary",
-"21 - Boss",
-"22 - Dark World Dungeon",
+"21 - Generic Boss",
+"22 - Generic Dark World Dungeon",
 "23 - Shop/Fortune Teller",
 "24 - Cave 2",
 "25 - Zelda's Rescue (unused in rando)",
@@ -123,15 +141,55 @@ titles = [
 #light world overworld music)
 nonloopingtracks = [1, 8, 10, 19, 29, 33, 34]
 
-#List of generic and specific dungeon & boss tracks.  Weighted so generic
-#tracks are more likely to show up since otherwise specific tracks get
-#shuffled in way more often.
-genericboss = [21] * 10
-genericdungeon = [0] * 14
-genericdungeon[:7] = [17] * 7
-genericdungeon[7:] = [22] * 7
-specificdungeon = list(range(35,46)) + [59]
-specificboss = list(range(47,58))
+#List of extended MSU dungeon-specific and boss-specific tracks.
+extendedmsutracks = list(range(35,62))
+
+#Since the presence of any dungeon/boss-specific track from an extended MSU
+#pack overrides the generic pendant/crystal dungeon or generic boss music,
+#a basic shuffle always picking track N as that same track N from a random
+#pack will result in no boss/dungeon music from a non-extended pack ever
+#being chosen if the user has a single extended pack.
+#
+#To allow dungeon/boss music to be played, the dungeon/boss-specific
+#extended MSU tracks are shuffled differently; for each extended
+#dungeon/boss-specific track, a pack is chosen randomly, then its
+#corresponding dungeon/boss-specific track is chosen if present,
+#otherwise, the generic dungeon/boss music from that pack is chosen.
+#
+#This means that a user that ONLY has non-extended packs won't be able to
+#listen to dungeon music to determine crystal/pendant status in modes where
+#that applies (since EP/DP/TH would always play light world music from a
+#random pack regardless of pendant/crystal status).  To preserve that
+#behavior, --basicshuffle can be used.
+
+extendedbackupdict = {
+  35: 17, #EP
+  36: 17, #DP
+  37: 16, #AT
+  38: 22, #SP
+  39: 22, #PD
+  40: 22, #MM
+  41: 22, #SW
+  42: 22, #IP
+  43: 17, #TH
+  44: 22, #TT
+  45: 22, #TR
+  46: 22, #GT
+  47: 21, #EP Boss
+  48: 21, #DP Boss
+  49: 21, #AT Boss
+  50: 21, #SP Boss
+  51: 21, #PD Boss
+  52: 21, #MM Boss
+  53: 21, #SW Boss
+  54: 21, #IP Boss
+  55: 21, #TH Boss
+  56: 21, #TT Boss
+  57: 21, #TR Boss
+  58: 21, #GT Boss
+  59: 22, #GT2
+  60: 2,  #LW2
+  61: 9}  #DW2
 
 def delete_old_msu(args):
     if os.path.exists("output.log"):
@@ -150,9 +208,23 @@ def delete_old_msu(args):
         else:
             os.remove(str(path))
 
+def copy_track(logger, args, srcpath, src, dst, printsrc):
+    dstpath = "./shuffled-" + str(dst) + ".pcm"
+
+    if printsrc:
+        srctitle = titles[src-1]
+        shorttitle = srctitle[4:]
+        logger.info(titles[dst-1] + ': (' + shorttitle.strip() + ') ' + srcpath)
+    else:
+        logger.info(titles[dst-1] + ': ' + srcpath)
+
+    if (not args.debug):
+        if (args.realcopy):
+            shutil.copy(srcpath, dstpath)
+        else:
+            os.link(srcpath, dstpath)
+
 def pick_random_track(logger, args, src, dst, printsrc):
-    dststr = str(dst)
-    dstname = "./shuffled-" + dststr + ".pcm"
     match = "*-" + str(src) + ".pcm"
 
     l = list()
@@ -170,18 +242,7 @@ def pick_random_track(logger, args, src, dst, printsrc):
         return;
 
     winner = random.choice(l)
-    if printsrc:
-        srctitle = titles[src-1]
-        shorttitle = srctitle[4:]
-        logger.info(titles[dst-1] + ': (' + shorttitle.strip() + ') ' + str(winner))
-    else:
-        logger.info(titles[dst-1] + ': ' + str(winner))
-
-    if (not args.debug):
-        if (args.realcopy):
-            shutil.copy(str(winner), dstname)
-        else:
-            os.link(str(winner), dstname)
+    copy_track(logger, args, str(winner), src, dst, printsrc)
 
 def generate_shuffled_msu(args):
     logger = logging.getLogger('')
@@ -202,28 +263,15 @@ def generate_shuffled_msu(args):
 
     #Separate this list into looping tracks and non-looping tracks, and make a
     #shuffled list of the found looping tracks.
-    loopingfoundtracks = [i for i in foundtracks if i not in nonloopingtracks]
+    if (args.basicshuffle or args.fullshuffle):
+        loopingfoundtracks = [i for i in foundtracks if i not in nonloopingtracks]
+    else:
+        nongenericshufflelist = nonloopingtracks + extendedmsutracks
+        loopingfoundtracks = [i for i in foundtracks if i not in nongenericshufflelist]
+
     shuffledloopingfoundtracks = loopingfoundtracks.copy()
     random.shuffle(shuffledloopingfoundtracks)
     nonloopingfoundtracks = [i for i in foundtracks if i in nonloopingtracks]
-
-    #Merge some lists
-    bosstracks = genericboss + specificboss
-    dungeontracks = genericdungeon + specificdungeon
-    #Shuffle shuffle shuffle
-    shuffledbosstracks = bosstracks.copy()
-    random.shuffle(shuffledbosstracks)
-    shuffleddungeontracks = dungeontracks.copy()
-    random.shuffle(shuffleddungeontracks)
-    #Also I guess we should remove tracks if they're not present
-    #There's probably a better way to do this but python is a dumb language #hottakes
-    for i in shuffledbosstracks:
-        if i not in foundtracks:
-            shuffledbosstracks.pop()
-
-    for i in shuffleddungeontracks:
-        if i not in foundtracks:
-            shuffleddungeontracks.pop()
 
     #For all found non-looping tracks, pick a random track with a matching
     #track number from a random pack in the target directory.
@@ -234,11 +282,11 @@ def generate_shuffled_msu(args):
 
     #For all found looping tracks, pick a random track from a random pack
     #in the target directory, with a matching track number by default, or
-    #a shuffled different looping track number if trackshuffle or
+    #a shuffled different looping track number if fullshuffle or
     #singleshuffle are enabled.
     logger.info("Looping tracks:")
     for i in loopingfoundtracks:
-        if (args.trackshuffle or args.singleshuffle):
+        if (args.fullshuffle or args.singleshuffle):
             dst = i
             src = shuffledloopingfoundtracks[loopingfoundtracks.index(i)]
             printsrc = True
@@ -246,18 +294,38 @@ def generate_shuffled_msu(args):
             dst = i
             src = i
             printsrc = False
-
-            #Okay we're shuffling extra tracks so do that I guess
-            if (args.xshuffle):
-                if (i in specificdungeon):
-                    printsrc = True
-                    src = random.choice(shuffleddungeontracks)
-                elif (i in specificboss):
-                    printsrc = True
-                    src = random.choice(shuffledbosstracks)
         pick_random_track(logger, args, src, dst, printsrc)
 
-    logger.info('Done.')
+    if (args.basicshuffle or args.fullshuffle):
+        logger.info('Done.')
+        return
+
+    logger.info("Extended MSU tracks:")
+    allpacks = list()
+    for path in Path(searchdir).glob('*/*.pcm'):
+        pack = os.path.dirname(str(path))
+        if pack not in allpacks:
+            allpacks.append(pack)
+
+    for i in extendedmsutracks:
+        randompack = random.choice(allpacks)
+        foundtrack = ""
+        src = i
+        printsrc = False
+        for path in Path(randompack).rglob("*-" + str(i) + ".pcm"):
+            foundtrack = path
+
+        if not foundtrack:
+            src = extendedbackupdict[i]
+            printsrc = True
+            for path in Path(randompack).rglob("*-" + str(src) + ".pcm"):
+                foundtrack = path
+
+        if not foundtrack:
+            logger.info("ERROR: Pack " + randompack + " missing both extended track " + str(i) + " and generic track " + str(extendedbackupdict[i]) + ".  Try using --basicshuffle.")
+            return
+
+        copy_track(logger, args, str(foundtrack), src, i, printsrc)
 
 def main(args):
     if args.version:
@@ -271,18 +339,26 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--loglevel', default='info', const='info', nargs='?', choices=['error', 'info', 'warning', 'debug'], help='Select level of logging for output.')
-    parser.add_argument('--trackshuffle', help='Choose each looping track randomly from all looping tracks from all packs, rather than the default behavior of only exchanging each track with that same track from a random pack.', action='store_true')
+    parser.add_argument('--fullshuffle', help="Choose each looping track randomly from all looping tracks from all packs, rather than the default behavior of only mixing track numbers for dungeon/boss-specific tracks.  Good if you like shop music in Ganon's Tower.", action='store_true', default=False)
+    parser.add_argument('--basicshuffle', help='Choose each track with the same track from a random pack.  If you have any extended packs, the dungeon/boss themes from non-extended packs will never be chosen in this mode.  If you only have non-extended packs, this preserves the ability to tell crystal/pendant dungeons by music.', action='store_true', default=False)
     parser.add_argument('--singleshuffle', help='Choose each looping track randomly from all looping tracks from a single MSU pack.  Enter the path to a subfolder in the parent directory containing a single MSU pack.')
-    parser.add_argument('--version', help='Print version number and exit.', action='store_true')
-    parser.add_argument('--xshuffle', help='Shuffles generic dungeon/boss tracks into specific dungeon/boss tracks.', action='store_true')
-    parser.add_argument('--realcopy', help='Creates real copies of the source tracks instead of hardlinks (default: off)', action='store_true', default=False)
+    parser.add_argument('--realcopy', help='Creates real copies of the source tracks instead of hardlinks', action='store_true', default=False)
     parser.add_argument('--debug', help='Makes script print all filesystem commands that would be executed instead of actually executing them.', action='store_true', default=False)
-
+    parser.add_argument('--version', help='Print version number and exit.', action='store_true', default=False)
 
     args = parser.parse_args()
+
+    if ((args.fullshuffle and args.basicshuffle)) or (args.singleshuffle and (args.fullshuffle or args.basicshuffle)):
+        parser.print_help()
+        sys.exit()
+
+    # When shuffling a single pack, don't auto-extend non-extended packs.
+    if (args.singleshuffle):
+        args.basicshuffle = True
 
     # set up logger
     loglevel = {'error': logging.ERROR, 'info': logging.INFO, 'warning': logging.WARNING, 'debug': logging.DEBUG}[args.loglevel]
     logging.basicConfig(format='%(message)s', level=loglevel)
 
     main(args)
+
