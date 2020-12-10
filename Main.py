@@ -171,13 +171,13 @@ def pick_random_track(logger, args, src, dst, printsrc):
 
     winner = random.choice(l)
     if printsrc:
-        logger.info(titles[dst-1] + ': ' + str(winner) + " (" + titles[src-1] + ")")
+        srctitle = titles[src-1]
+        shorttitle = srctitle[4:]
+        logger.info(titles[dst-1] + ': (' + shorttitle.strip() + ') ' + str(winner))
     else:
         logger.info(titles[dst-1] + ': ' + str(winner))
 
-    if (args.debug):
-        logger.info("DEBUG: Would copy " + str(winner) + " to " + dstname)
-    else:
+    if (not args.debug):
         if (args.realcopy):
             shutil.copy(str(winner), dstname)
         else:
@@ -245,14 +245,16 @@ def generate_shuffled_msu(args):
         else:
             dst = i
             src = i
+            printsrc = False
 
             #Okay we're shuffling extra tracks so do that I guess
             if (args.xshuffle):
                 if (i in specificdungeon):
+                    printsrc = True
                     src = random.choice(shuffleddungeontracks)
                 elif (i in specificboss):
+                    printsrc = True
                     src = random.choice(shuffledbosstracks)
-            printsrc = False
         pick_random_track(logger, args, src, dst, printsrc)
 
     logger.info('Done.')
