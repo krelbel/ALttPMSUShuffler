@@ -33,9 +33,7 @@ __version__ = '0.3-dev'
 #    - If run in the command line as
 #      "python Main.py --xshuffle", behavior will only shuffle dungeon and
 #      boss tracks. This is more-interesting with Extended MSU Packs.
-# 3) (first time only) Create a new empty file named "shuffled.msu" in this
-#    directory
-# 4) Copy the ALttP Randomizer ROM (with background music enabled) to this
+# 3) Copy the ALttP Randomizer ROM (with background music enabled) to this
 #    directory and rename it to "shuffled.sfc".  Load it in an MSU-compatible
 #    emulator (works well with Snes9x 1.60)
 
