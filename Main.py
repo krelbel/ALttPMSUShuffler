@@ -8,7 +8,7 @@ import shutil
 import glob
 import sys
 
-__version__ = '0.4-dev'
+__version__ = '0.5'
 
 # Creates a shuffled MSU-1 pack for ALttP Randomizer from one or more source
 # MSU-1 packs.
@@ -329,28 +329,45 @@ def generate_shuffled_msu(args):
         return
 
     logger.info("Extended MSU tracks:")
+
+    #Make a list of all directories with .pcm tracks except this one
     allpacks = list()
-    for path in Path(searchdir).glob('*/*.pcm'):
+    for path in Path(searchdir).rglob('*.pcm'):
         pack = os.path.dirname(str(path))
-        if pack not in allpacks:
+        name = os.path.basename(str(path))[:8]
+        if pack not in allpacks and name != "shuffled":
             allpacks.append(pack)
 
+    if not allpacks:
+        logger.info("ERROR: Couldn't find any MSU packs in " + os.path.abspath(str(searchdir)))
+        return
+
+    #For each extended track, pick a random directory, if it has either the
+    #corresponding extended track or backup generic track, pick it, otherwise
+    #pick another random directory.  Try 1000 times then give up (should only
+    #fail if running this script where the parent directory contains no
+    #completed MSU packs)
     for i in extendedmsutracks:
-        randompack = random.choice(allpacks)
         foundtrack = ""
+        tries = 0
         src = i
         printsrc = False
-        for path in Path(randompack).rglob("*-" + str(i) + ".pcm"):
-            foundtrack = path
-
-        if not foundtrack:
-            src = extendedbackupdict[i]
-            printsrc = True
-            for path in Path(randompack).rglob("*-" + str(src) + ".pcm"):
+        while tries < 1000 and not foundtrack:
+            tries += 1
+            randompack = random.choice(allpacks)
+            for path in Path(randompack).rglob("*-" + str(i) + ".pcm"):
                 foundtrack = path
+                break
+
+            if not foundtrack:
+                src = extendedbackupdict[i]
+                printsrc = True
+                for path in Path(randompack).rglob("*-" + str(src) + ".pcm"):
+                    foundtrack = path
+                    break
 
         if not foundtrack:
-            logger.info("ERROR: Pack " + randompack + " missing both extended track " + str(i) + " and generic track " + str(extendedbackupdict[i]) + ".  Try using --basicshuffle.")
+            logger.info("ERROR: Couldn't find extended track " + str(i) + " or generic track " + str(extendedbackupdict[i]) + " in " + os.path.abspath(str(searchdir)))
             return
 
         copy_track(logger, args, str(foundtrack), src, i, printsrc)
