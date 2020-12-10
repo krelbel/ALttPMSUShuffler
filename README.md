@@ -23,9 +23,17 @@ Usage:
      "python Main.py --singleshuffle ../your-msu-pack-name-here", behavior is
      the same as with --trackshuffle, but a single MSU pack of your choice is
      chosen as the shuffled source for all tracks in the generated pack.
-    - This script uses hardlinks instead of copies by default to reduce disk
-      usage and increase speed; the --realcopy option can be used to create
-      real copies instead of hardlinks.
+   - If run in the command line as
+     "python Main.py --xshuffle", behavior will only shuffle dungeon and
+     boss tracks. This is more-interesting with Extended MSU Packs.
+
+  Debugging options (not necessary for normal use):
+   - This script uses hardlinks instead of copies by default to reduce disk
+     usage and increase speed; the --realcopy option can be used to create
+     real copies instead of hardlinks.
+   - The --debug option can be used to make this script print the filesystem
+     commands (deleting, creating, renaming files) it would have executed
+     instead of executing them.
 
 3) Copy the ALttP Randomizer ROM (with background music enabled) to this
    directory and rename it to "shuffled.sfc".  Load it in an MSU-compatible

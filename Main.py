@@ -33,9 +33,14 @@ __version__ = '0.3-dev'
 #    - If run in the command line as
 #      "python Main.py --xshuffle", behavior will only shuffle dungeon and
 #      boss tracks. This is more-interesting with Extended MSU Packs.
+#
+#  Debugging options (not necessary for normal use):
 #    - This script uses hardlinks instead of copies by default to reduce disk
 #      usage and increase speed; the --realcopy option can be used to create
 #      real copies instead of hardlinks.
+#    - The --debug option can be used to make this script print the filesystem
+#      commands (deleting, creating, renaming files) it would have executed
+#      instead of executing them.
 # 3) Copy the ALttP Randomizer ROM (with background music enabled) to this
 #    directory and rename it to "shuffled.sfc".  Load it in an MSU-compatible
 #    emulator (works well with Snes9x 1.60)
@@ -131,8 +136,19 @@ specificboss = list(range(47,58))
 def delete_old_msu(args):
     if os.path.exists("output.log"):
         os.remove("output.log")
+
+    logger = logging.getLogger('')
+    output_file_handler = logging.FileHandler("output.log")
+    logger.addHandler(output_file_handler)
+
+    if (args.debug):
+        logger.info("DEBUG MODE: Printing instead of executing.")
+
     for path in glob.glob('shuffled-*.pcm'):
-        os.remove(str(path))
+        if (args.debug):
+            logger.info("DEBUG: Would remove " + str(path))        
+        else:
+            os.remove(str(path))
 
 def pick_random_track(logger, args, src, dst, printsrc):
     dststr = str(dst)
@@ -158,15 +174,17 @@ def pick_random_track(logger, args, src, dst, printsrc):
         logger.info(titles[dst-1] + ': ' + str(winner) + " (" + titles[src-1] + ")")
     else:
         logger.info(titles[dst-1] + ': ' + str(winner))
-    if (args.realcopy):
-        shutil.copy(str(winner), dstname)
+
+    if (args.debug):
+        logger.info("DEBUG: Would copy " + str(winner) + " to " + dstname)
     else:
-        os.link(str(winner), dstname)
+        if (args.realcopy):
+            shutil.copy(str(winner), dstname)
+        else:
+            os.link(str(winner), dstname)
 
 def generate_shuffled_msu(args):
     logger = logging.getLogger('')
-    output_file_handler = logging.FileHandler("output.log")
-    logger.addHandler(output_file_handler)
 
     #For all packs in the target directory, make a list of found track numbers.
     if (args.singleshuffle):
@@ -189,7 +207,7 @@ def generate_shuffled_msu(args):
     random.shuffle(shuffledloopingfoundtracks)
     nonloopingfoundtracks = [i for i in foundtracks if i in nonloopingtracks]
 
-	#Merge some lists
+    #Merge some lists
     bosstracks = genericboss + specificboss
     dungeontracks = genericdungeon + specificdungeon
     #Shuffle shuffle shuffle
@@ -256,6 +274,7 @@ if __name__ == '__main__':
     parser.add_argument('--version', help='Print version number and exit.', action='store_true')
     parser.add_argument('--xshuffle', help='Shuffles generic dungeon/boss tracks into specific dungeon/boss tracks.', action='store_true')
     parser.add_argument('--realcopy', help='Creates real copies of the source tracks instead of hardlinks (default: off)', action='store_true', default=False)
+    parser.add_argument('--debug', help='Makes script print all filesystem commands that would be executed instead of actually executing them.', action='store_true', default=False)
 
 
     args = parser.parse_args()
