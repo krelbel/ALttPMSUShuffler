@@ -33,6 +33,9 @@ __version__ = '0.3-dev'
 #    - If run in the command line as
 #      "python Main.py --xshuffle", behavior will only shuffle dungeon and
 #      boss tracks. This is more-interesting with Extended MSU Packs.
+#    - This script uses hardlinks instead of copies by default to reduce disk
+#      usage and increase speed; the --realcopy option can be used to create
+#      real copies instead of hardlinks.
 # 3) Copy the ALttP Randomizer ROM (with background music enabled) to this
 #    directory and rename it to "shuffled.sfc".  Load it in an MSU-compatible
 #    emulator (works well with Snes9x 1.60)
@@ -155,7 +158,10 @@ def pick_random_track(logger, args, src, dst, printsrc):
         logger.info(titles[dst-1] + ': ' + str(winner) + " (" + titles[src-1] + ")")
     else:
         logger.info(titles[dst-1] + ': ' + str(winner))
-    shutil.copy(str(winner), dstname)
+    if (args.realcopy):
+        shutil.copy(str(winner), dstname)
+    else:
+        os.link(str(winner), dstname)
 
 def generate_shuffled_msu(args):
     logger = logging.getLogger('')
@@ -249,6 +255,7 @@ if __name__ == '__main__':
     parser.add_argument('--singleshuffle', help='Choose each looping track randomly from all looping tracks from a single MSU pack.  Enter the path to a subfolder in the parent directory containing a single MSU pack.')
     parser.add_argument('--version', help='Print version number and exit.', action='store_true')
     parser.add_argument('--xshuffle', help='Shuffles generic dungeon/boss tracks into specific dungeon/boss tracks.', action='store_true')
+    parser.add_argument('--realcopy', help='Creates real copies of the source tracks instead of hardlinks (default: off)', action='store_true', default=False)
 
 
     args = parser.parse_args()
