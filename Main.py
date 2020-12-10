@@ -5,6 +5,7 @@ from pathlib import Path
 import random
 import re
 import shutil
+import glob
 
 __version__ = '0.3-dev'
 
@@ -129,7 +130,7 @@ specificboss = list(range(47,58))
 def delete_old_msu(args):
     if os.path.exists("output.log"):
         os.remove("output.log")
-    for path in Path('./').rglob('*.pcm'):
+    for path in glob.glob('shuffled-*.pcm'):
         os.remove(str(path))
 
 def pick_random_track(logger, args, src, dst, printsrc):
