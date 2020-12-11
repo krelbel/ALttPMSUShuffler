@@ -275,6 +275,12 @@ def pick_random_track(logger, args, src, dst, printsrc):
 def generate_shuffled_msu(args):
     logger = logging.getLogger('')
 
+    if (not os.path.exists('shuffled.msu')):
+        logger.info("'shuffled.msu' doesn't exist, creating it.")
+        if (not args.dry_run):
+            with open('shuffled.msu', 'w'):
+                pass
+
     #For all packs in the target directory, make a list of found track numbers.
     if (args.singleshuffle):
         searchdir = args.singleshuffle
