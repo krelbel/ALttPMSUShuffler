@@ -8,7 +8,7 @@ import shutil
 import glob
 import sys
 
-__version__ = '0.5'
+__version__ = '0.6-pre'
 
 # Creates a shuffled MSU-1 pack for ALttP Randomizer from one or more source
 # MSU-1 packs.
@@ -67,7 +67,7 @@ __version__ = '0.5'
 #   usage and increase speed; the --realcopy option can be used to create
 #   real copies instead of hardlinks.
 #
-# - The --debug option can be used to make this script print the filesystem
+# - The --dry-run option can be used to make this script print the filesystem
 #   commands (deleting, creating, renaming files) it would have executed
 #   instead of executing them.
 
@@ -207,8 +207,8 @@ def delete_old_msu(args):
     output_file_handler = logging.FileHandler("output.log")
     logger.addHandler(output_file_handler)
 
-    if (args.debug):
-        logger.info("DEBUG MODE: Printing instead of executing.")
+    if (args.dry_run):
+        logger.info("DRY RUN MODE: Printing instead of executing.")
 
     foundsrcrom = False
     foundshuffled = False
@@ -224,15 +224,15 @@ def delete_old_msu(args):
         if foundshuffled:
             replace = str(input("Replace shuffled.sfc with " + os.path.basename(srcrom) + "? [Y/n]") or "Y")
         if (replace == "Y") or (replace == "y"):
-            if (args.debug):
-                logger.info("DEBUG: Would rename " + os.path.basename(srcrom) + " to shuffled.sfc.")
+            if (args.dry_run):
+                logger.info("DRY RUN: Would rename " + os.path.basename(srcrom) + " to shuffled.sfc.")
             else:
                 logger.info("Renaming " + os.path.basename(srcrom) + " to shuffled.sfc.")
                 shutil.move(srcrom, "./shuffled.sfc")
 
     for path in glob.glob('shuffled-*.pcm'):
-        if (args.debug):
-            logger.info("DEBUG: Would remove " + str(path))        
+        if (args.dry_run):
+            logger.info("DRY RUN: Would remove " + str(path))        
         else:
             os.remove(str(path))
 
@@ -246,7 +246,7 @@ def copy_track(logger, args, srcpath, src, dst, printsrc):
     else:
         logger.info(titles[dst-1] + ': ' + srcpath)
 
-    if (not args.debug):
+    if (not args.dry_run):
         if (args.realcopy):
             shutil.copy(srcpath, dstpath)
         else:
@@ -388,7 +388,7 @@ if __name__ == '__main__':
     parser.add_argument('--basicshuffle', help='Choose each track with the same track from a random pack.  If you have any extended packs, the dungeon/boss themes from non-extended packs will never be chosen in this mode.  If you only have non-extended packs, this preserves the ability to tell crystal/pendant dungeons by music.', action='store_true', default=False)
     parser.add_argument('--singleshuffle', help='Choose each looping track randomly from all looping tracks from a single MSU pack.  Enter the path to a subfolder in the parent directory containing a single MSU pack.')
     parser.add_argument('--realcopy', help='Creates real copies of the source tracks instead of hardlinks', action='store_true', default=False)
-    parser.add_argument('--debug', help='Makes script print all filesystem commands that would be executed instead of actually executing them.', action='store_true', default=False)
+    parser.add_argument('--dry-run', help='Makes script print all filesystem commands that would be executed instead of actually executing them.', action='store_true', default=False)
     parser.add_argument('--version', help='Print version number and exit.', action='store_true', default=False)
 
     args = parser.parse_args()

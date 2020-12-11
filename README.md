@@ -57,7 +57,7 @@ Additional options/usage notes:
   usage and increase speed; the --realcopy option can be used to create
   real copies instead of hardlinks.
 
-- The --debug option can be used to make this script print the filesystem
+- The --dry-run option can be used to make this script print the filesystem
   commands (deleting, creating, renaming files) it would have executed
   instead of executing them.
 
