@@ -10,32 +10,29 @@ Usage:
    `"MSUs\alttp_undertale\alttp_msu-1.pcm"`, the script should be in
    `"MSUs\ALttPMSUShuffler\Main.py"`.
 
-DRAG AND DROP METHOD:
+2) DRAG AND DROP METHOD:
 
-2a) Drag one or more ALttP Randomizer ROMs (with background music enabled) on
-    top of Main.py to open the ROMs with the python script; for each ROM
-    opened this way, a shuffled MSU pack matching that ROM's name will be
-    generated next to the ROM in its original directory (with the tracklist in
-    ROMNAME-msushuffleroutput.log).
+    1) Drag one or more ALttP Randomizer ROMs (with background music enabled)
+       on top of Main.py to open the ROMs with the python script; for each ROM
+       opened this way, a shuffled MSU pack matching that ROM's name will be
+       generated next to the ROM in its original directory (with the tracklist
+       in ROMNAME-msushuffleroutput.log).
 
-2b) Open the ROM in an MSU-compatible emulator (works well with Snes9x 1.60)
+3) MANUAL METHOD:
 
-MANUAL METHOD:
+    1) Copy the ALttP Randomizer ROM (with background music enabled) to the
+       same directory as this Main.py script.  The script will rename the ROM
+       to "shuffled.sfc".  The original ROM name and tracklist is printed to
+       "shuffled-msushuffleroutput.log" (handy for retrieving spoilers).  If
+       you don't copy the ROM before running the script, you need to rename
+       the ROM to "shuffled.sfc" yourself.  The script will warn before
+       overwriting "shuffled.sfc" if it already exists.
 
-3a) Copy the ALttP Randomizer ROM (with background music enabled) to the same
-    directory as this Main.py script.  The script will rename the ROM to
-    "shuffled.sfc".  The original ROM name and tracklist is printed to
-    "shuffled-msushuffleroutput.log" (handy for retrieving spoilers).  If you
-    don't copy the ROM before running the script, you need to rename the ROM
-    to "shuffled.sfc" yourself.  The script will warn before overwriting
-    "shuffled.sfc" if it already exists.
+    2) Run Main.py to execute the script to delete any old pack in this
+       directory and generate a new one.  Track names picked will be saved in
+       "shuffled-msushuffleroutput.log" (cleared on reruns)
 
-3b) Run Main.py to execute the script to delete any old pack in this directory
-    and generate a new one.  Track names picked will be saved in
-    "shuffled-msushuffleroutput.log" (cleared on reruns)
-
-3c) Load "shuffled.sfc" in an MSU-compatible emulator (works well with
-    Snes9x 1.60)
+4) Load the ROM in an MSU-compatible emulator (works well with Snes9x 1.60)
 
 Additional options/usage notes:
 
@@ -65,6 +62,10 @@ Additional options/usage notes:
   "python Main.py --singleshuffle ../your-msu-pack-name-here", behavior is
   the same as with --fullshuffle, but a single MSU pack of your choice is
   chosen as the shuffled source for all tracks in the generated pack.
+
+- If run in the command line as "python Main.py --higan" (along with any
+  other options), the shuffled MSU pack is generated in a higan-friendly
+  subdirectory "./higan.sfc/"
 
  Debugging options (not necessary for normal use):
 

@@ -8,7 +8,7 @@ import shutil
 import glob
 import sys
 
-__version__ = '0.6-pre'
+__version__ = '0.6'
 
 # Creates a shuffled MSU-1 pack for ALttP Randomizer from one or more source
 # MSU-1 packs.
@@ -20,32 +20,29 @@ __version__ = '0.6-pre'
 #    "MSUs\alttp_undertale\alttp_msu-1.pcm", the script should be in
 #    "MSUs\ALttPMSUShuffler\Main.py".
 #
-# DRAG AND DROP METHOD:
+# 2) DRAG AND DROP METHOD:
 #
-# 2a) Drag one or more ALttP Randomizer ROMs (with background music enabled) on
-#     top of Main.py to open the ROMs with the python script; for each ROM
-#     opened this way, a shuffled MSU pack matching that ROM's name will be
-#     generated next to the ROM in its original directory (with the tracklist in
-#     ROMNAME-msushuffleroutput.log).
+#     1) Drag one or more ALttP Randomizer ROMs (with background music enabled)
+#        on top of Main.py to open the ROMs with the python script; for each ROM
+#        opened this way, a shuffled MSU pack matching that ROM's name will be
+#        generated next to the ROM in its original directory (with the tracklist
+#        in ROMNAME-msushuffleroutput.log).
 #
-# 2b) Open the ROM in an MSU-compatible emulator (works well with Snes9x 1.60)
+# 3) MANUAL METHOD:
 #
-# MANUAL METHOD:
+#     1) Copy the ALttP Randomizer ROM (with background music enabled) to the
+#        same directory as this Main.py script.  The script will rename the ROM
+#        to "shuffled.sfc".  The original ROM name and tracklist is printed to
+#        "shuffled-msushuffleroutput.log" (handy for retrieving spoilers).  If
+#        you don't copy the ROM before running the script, you need to rename
+#        the ROM to "shuffled.sfc" yourself.  The script will warn before
+#        overwriting "shuffled.sfc" if it already exists.
 #
-# 3a) Copy the ALttP Randomizer ROM (with background music enabled) to the same
-#     directory as this Main.py script.  The script will rename the ROM to
-#     "shuffled.sfc".  The original ROM name and tracklist is printed to
-#     "shuffled-msushuffleroutput.log" (handy for retrieving spoilers).  If you
-#     don't copy the ROM before running the script, you need to rename the ROM
-#     to "shuffled.sfc" yourself.  The script will warn before overwriting
-#     "shuffled.sfc" if it already exists.
+#     2) Run Main.py to execute the script to delete any old pack in this
+#        directory and generate a new one.  Track names picked will be saved in
+#        "shuffled-msushuffleroutput.log" (cleared on reruns)
 #
-# 3b) Run Main.py to execute the script to delete any old pack in this directory
-#     and generate a new one.  Track names picked will be saved in
-#     "shuffled-msushuffleroutput.log" (cleared on reruns)
-#
-# 3c) Load "shuffled.sfc" in an MSU-compatible emulator (works well with
-#     Snes9x 1.60)
+# 4) Load the ROM in an MSU-compatible emulator (works well with Snes9x 1.60)
 #
 # Additional options/usage notes:
 #
@@ -75,6 +72,10 @@ __version__ = '0.6-pre'
 #   "python Main.py --singleshuffle ../your-msu-pack-name-here", behavior is
 #   the same as with --fullshuffle, but a single MSU pack of your choice is
 #   chosen as the shuffled source for all tracks in the generated pack.
+#
+# - If run in the command line as "python Main.py --higan" (along with any
+#   other options), the shuffled MSU pack is generated in a higan-friendly
+#   subdirectory "./higan.sfc/"
 #
 #  Debugging options (not necessary for normal use):
 #
@@ -215,6 +216,8 @@ extendedbackupdict = {
   60: 2,  #LW2
   61: 9}  #DW2
 
+higandir = "./higan.sfc"
+
 def delete_old_msu(args, rompath):
     if os.path.exists(f"{rompath}-msushuffleroutput.log"):
         os.remove(f"{rompath}-msushuffleroutput.log")
@@ -229,31 +232,55 @@ def delete_old_msu(args, rompath):
     foundsrcrom = False
     foundshuffled = False
     for path in glob.glob('*.sfc'):
-        if (os.path.basename(str(path)) != "shuffled.sfc"):
+        romname = os.path.basename(str(path))
+        if romname != "shuffled.sfc" and romname != "higan.sfc":
             srcrom = path
             foundsrcrom = True
         else:
             foundshuffled = True
 
-    if foundsrcrom and rompath == './shuffled':
-        replace = "Y"
-        if foundshuffled:
-            replace = str(input("Replace shuffled.sfc with " + os.path.basename(srcrom) + "? [Y/n]") or "Y")
-        if (replace == "Y") or (replace == "y"):
-            if (args.dry_run):
-                logger.info("DRY RUN: Would rename " + os.path.basename(srcrom) + " to shuffled.sfc.")
+    if args.higan:
+        if os.path.isdir(higandir):
+            if args.dry_run:
+                logger.info("DRY RUN MODE: Would rmtree " + higandir)
             else:
-                logger.info("Renaming " + os.path.basename(srcrom) + " to shuffled.sfc.")
-                shutil.move(srcrom, "./shuffled.sfc")
-
-    for path in glob.glob(f'{rompath}-*.pcm'):
-        if (args.dry_run):
-            logger.info("DRY RUN: Would remove " + str(path))        
+                shutil.rmtree(higandir)
+        if args.dry_run:
+            logger.info("DRY RUN MODE: Would make " + higandir + "/msu1.rom")
         else:
-            os.remove(str(path))
+            os.mkdir(higandir)
+            open(higandir + "/msu1.rom", 'a').close()
+
+    if foundsrcrom and rompath == './shuffled':
+        if args.higan:
+            if args.dry_run:
+                logger.info("DRY RUN MODE: Would copy " + os.path.basename(srcrom) + " to " + higandir + "/program.rom")
+            else:
+                logger.info("Copying " + os.path.basename(srcrom) + " to " + higandir + "/program.rom")
+                shutil.copy(srcrom, higandir + "/program.rom")
+        else:
+            replace = "Y"
+            if foundshuffled:
+                replace = str(input("Replace shuffled.sfc with " + os.path.basename(srcrom) + "? [Y/n]") or "Y")
+            if (replace == "Y") or (replace == "y"):
+                if (args.dry_run):
+                    logger.info("DRY RUN: Would rename " + os.path.basename(srcrom) + " to shuffled.sfc.")
+                else:
+                    logger.info("Renaming " + os.path.basename(srcrom) + " to shuffled.sfc.")
+                    shutil.move(srcrom, "./shuffled.sfc")
+
+    if not args.higan:
+        for path in glob.glob(f'{rompath}-*.pcm'):
+            if (args.dry_run):
+                logger.info("DRY RUN: Would remove " + str(path))        
+            else:
+                os.remove(str(path))
 
 def copy_track(logger, args, srcpath, src, dst, printsrc, rompath):
-    dstpath = f"{rompath}-{dst}.pcm"
+    if args.higan:
+        dstpath = higandir + "/track-" + str(dst) + ".pcm"
+    else:
+        dstpath = f"{rompath}-{dst}.pcm"
 
     if printsrc:
         srctitle = titles[src-1]
@@ -416,6 +443,7 @@ if __name__ == '__main__':
     parser.add_argument('--fullshuffle', help="Choose each looping track randomly from all looping tracks from all packs, rather than the default behavior of only mixing track numbers for dungeon/boss-specific tracks.  Good if you like shop music in Ganon's Tower.", action='store_true', default=False)
     parser.add_argument('--basicshuffle', help='Choose each track with the same track from a random pack.  If you have any extended packs, the dungeon/boss themes from non-extended packs will never be chosen in this mode.  If you only have non-extended packs, this preserves the ability to tell crystal/pendant dungeons by music.', action='store_true', default=False)
     parser.add_argument('--singleshuffle', help='Choose each looping track randomly from all looping tracks from a single MSU pack.  Enter the path to a subfolder in the parent directory containing a single MSU pack.')
+    parser.add_argument('--higan', help='Creates files in higan-friendly directory structure.', action='store_true', default=False)
     parser.add_argument('--realcopy', help='Creates real copies of the source tracks instead of hardlinks', action='store_true', default=False)
     parser.add_argument('--dry-run', help='Makes script print all filesystem commands that would be executed instead of actually executing them.', action='store_true', default=False)
     parser.add_argument('--version', help='Print version number and exit.', action='store_true', default=False)
