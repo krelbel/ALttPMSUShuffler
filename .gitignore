@@ -1,3 +1,5 @@
 *.msu
 *.sfc
 *.pcm
+*~
+*.swp
