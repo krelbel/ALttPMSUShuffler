@@ -8,7 +8,7 @@ import shutil
 import glob
 import sys
 
-__version__ = '0.6-pre'
+__version__ = '0.4-dev'
 
 # Creates a shuffled MSU-1 pack for ALttP Randomizer from one or more source
 # MSU-1 packs.
@@ -16,36 +16,21 @@ __version__ = '0.6-pre'
 # Usage:
 #
 # 1) Copy this script to a new subdirectory in the directory containing all
-#    of your current MSU packs.  For example, if your MSU pack is in
-#    "MSUs\alttp_undertale\alttp_msu-1.pcm", the script should be in
-#    "MSUs\ALttPMSUShuffler\Main.py".
+#    of your current MSU packs
 #
-# DRAG AND DROP METHOD:
+# 2) Copy the ALttP Randomizer ROM (with background music enabled) to this
+#    directory.  The script will rename it to "shuffled.sfc".  The original name
+#    is printed to "output.log" (handy for retrieving spoilers).  If you don't
+#    copy the ROM before running the script, you need to rename the ROM to
+#    "shuffled.sfc" yourself.  The script will warn before overwriting
+#    "shuffled.sfc" if it already exists.
 #
-# 2a) Drag one or more ALttP Randomizer ROMs (with background music enabled) on
-#     top of Main.py to open the ROMs with the python script; for each ROM
-#     opened this way, a shuffled MSU pack matching that ROM's name will be
-#     generated next to the ROM in its original directory (with the tracklist in
-#     ROMNAME-msushuffleroutput.log).
+# 2) Run Main.py to execute the script to delete any old pack in this directory
+#    and generate a new one.  Track names picked will be saved in "output.log"
+#    (cleared on reruns)
 #
-# 2b) Open the ROM in an MSU-compatible emulator (works well with Snes9x 1.60)
-#
-# MANUAL METHOD:
-#
-# 3a) Copy the ALttP Randomizer ROM (with background music enabled) to the same
-#     directory as this Main.py script.  The script will rename the ROM to
-#     "shuffled.sfc".  The original ROM name and tracklist is printed to
-#     "shuffled-msushuffleroutput.log" (handy for retrieving spoilers).  If you
-#     don't copy the ROM before running the script, you need to rename the ROM
-#     to "shuffled.sfc" yourself.  The script will warn before overwriting
-#     "shuffled.sfc" if it already exists.
-#
-# 3b) Run Main.py to execute the script to delete any old pack in this directory
-#     and generate a new one.  Track names picked will be saved in
-#     "shuffled-msushuffleroutput.log" (cleared on reruns)
-#
-# 3c) Load "shuffled.sfc" in an MSU-compatible emulator (works well with
-#     Snes9x 1.60)
+# 3) Load "shuffled.sfc" in an MSU-compatible emulator (works well with
+#    Snes9x 1.60)
 #
 # Additional options/usage notes:
 #
@@ -80,10 +65,9 @@ __version__ = '0.6-pre'
 #
 # - This script uses hardlinks instead of copies by default to reduce disk
 #   usage and increase speed; the --realcopy option can be used to create
-#   real copies instead of hardlinks.  Real copies are forced if the shuffled
-#   MSU pack and the source MSU packs are on different hard drives.
+#   real copies instead of hardlinks.
 #
-# - The --dry-run option can be used to make this script print the filesystem
+# - The --debug option can be used to make this script print the filesystem
 #   commands (deleting, creating, renaming files) it would have executed
 #   instead of executing them.
 
@@ -215,16 +199,16 @@ extendedbackupdict = {
   60: 2,  #LW2
   61: 9}  #DW2
 
-def delete_old_msu(args, rompath):
-    if os.path.exists(f"{rompath}-msushuffleroutput.log"):
-        os.remove(f"{rompath}-msushuffleroutput.log")
+def delete_old_msu(args):
+    if os.path.exists("output.log"):
+        os.remove("output.log")
 
     logger = logging.getLogger('')
-    output_file_handler = logging.FileHandler(f"{rompath}-msushuffleroutput.log")
+    output_file_handler = logging.FileHandler("output.log")
     logger.addHandler(output_file_handler)
 
-    if (args.dry_run):
-        logger.info("DRY RUN MODE: Printing instead of executing.")
+    if (args.debug):
+        logger.info("DEBUG MODE: Printing instead of executing.")
 
     foundsrcrom = False
     foundshuffled = False
@@ -235,25 +219,25 @@ def delete_old_msu(args, rompath):
         else:
             foundshuffled = True
 
-    if foundsrcrom and rompath == './shuffled':
+    if foundsrcrom:
         replace = "Y"
         if foundshuffled:
             replace = str(input("Replace shuffled.sfc with " + os.path.basename(srcrom) + "? [Y/n]") or "Y")
         if (replace == "Y") or (replace == "y"):
-            if (args.dry_run):
-                logger.info("DRY RUN: Would rename " + os.path.basename(srcrom) + " to shuffled.sfc.")
+            if (args.debug):
+                logger.info("DEBUG: Would rename " + os.path.basename(srcrom) + " to shuffled.sfc.")
             else:
                 logger.info("Renaming " + os.path.basename(srcrom) + " to shuffled.sfc.")
                 shutil.move(srcrom, "./shuffled.sfc")
 
-    for path in glob.glob(f'{rompath}-*.pcm'):
-        if (args.dry_run):
-            logger.info("DRY RUN: Would remove " + str(path))        
+    for path in glob.glob('shuffled-*.pcm'):
+        if (args.debug):
+            logger.info("DEBUG: Would remove " + str(path))        
         else:
             os.remove(str(path))
 
-def copy_track(logger, args, srcpath, src, dst, printsrc, rompath):
-    dstpath = f"{rompath}-{dst}.pcm"
+def copy_track(logger, args, srcpath, src, dst, printsrc):
+    dstpath = "./shuffled-" + str(dst) + ".pcm"
 
     if printsrc:
         srctitle = titles[src-1]
@@ -262,13 +246,13 @@ def copy_track(logger, args, srcpath, src, dst, printsrc, rompath):
     else:
         logger.info(titles[dst-1] + ': ' + srcpath)
 
-    if (not args.dry_run):
-        if (args.forcerealcopy):
+    if (not args.debug):
+        if (args.realcopy):
             shutil.copy(srcpath, dstpath)
         else:
             os.link(srcpath, dstpath)
 
-def pick_random_track(logger, args, src, dst, printsrc, rompath):
+def pick_random_track(logger, args, src, dst, printsrc):
     match = "*-" + str(src) + ".pcm"
 
     l = list()
@@ -286,16 +270,10 @@ def pick_random_track(logger, args, src, dst, printsrc, rompath):
         return;
 
     winner = random.choice(l)
-    copy_track(logger, args, str(winner), src, dst, printsrc, rompath)
+    copy_track(logger, args, str(winner), src, dst, printsrc)
 
-def generate_shuffled_msu(args, rompath):
+def generate_shuffled_msu(args):
     logger = logging.getLogger('')
-
-    if (not os.path.exists(f'{rompath}.msu')):
-        logger.info(f"'{rompath}.msu' doesn't exist, creating it.")
-        if (not args.dry_run):
-            with open(f'{rompath}.msu', 'w'):
-                pass
 
     #For all packs in the target directory, make a list of found track numbers.
     if (args.singleshuffle):
@@ -328,7 +306,7 @@ def generate_shuffled_msu(args, rompath):
     logger.info("Non-looping tracks:")
     for i in nonloopingfoundtracks:
         srcstr = str(i)
-        pick_random_track(logger, args, i, i, False, rompath)
+        pick_random_track(logger, args, i, i, False)
 
     #For all found looping tracks, pick a random track from a random pack
     #in the target directory, with a matching track number by default, or
@@ -344,7 +322,7 @@ def generate_shuffled_msu(args, rompath):
             dst = i
             src = i
             printsrc = False
-        pick_random_track(logger, args, src, dst, printsrc, rompath)
+        pick_random_track(logger, args, src, dst, printsrc)
 
     if (args.basicshuffle or args.fullshuffle):
         logger.info('Done.')
@@ -392,22 +370,15 @@ def generate_shuffled_msu(args, rompath):
             logger.info("ERROR: Couldn't find extended track " + str(i) + " or generic track " + str(extendedbackupdict[i]) + " in " + os.path.abspath(str(searchdir)))
             return
 
-        copy_track(logger, args, str(foundtrack), src, i, printsrc, rompath)
+        copy_track(logger, args, str(foundtrack), src, i, printsrc)
 
 def main(args):
     if args.version:
         print("ALttPMSUShuffler version " + __version__)
         return
 
-    for rom in roms:
-        args.forcerealcopy = args.realcopy
-        try:
-            # determine if the supplied rom is ON the same drive as the script. If not, realcopy is mandatory.
-            os.path.commonpath([os.path.abspath(rom), __file__])
-        except:
-            args.forcerealcopy = True
-        delete_old_msu(args, rom)
-        generate_shuffled_msu(args, rom)
+    delete_old_msu(args)
+    generate_shuffled_msu(args)
     return
 
 if __name__ == '__main__':
@@ -417,14 +388,10 @@ if __name__ == '__main__':
     parser.add_argument('--basicshuffle', help='Choose each track with the same track from a random pack.  If you have any extended packs, the dungeon/boss themes from non-extended packs will never be chosen in this mode.  If you only have non-extended packs, this preserves the ability to tell crystal/pendant dungeons by music.', action='store_true', default=False)
     parser.add_argument('--singleshuffle', help='Choose each looping track randomly from all looping tracks from a single MSU pack.  Enter the path to a subfolder in the parent directory containing a single MSU pack.')
     parser.add_argument('--realcopy', help='Creates real copies of the source tracks instead of hardlinks', action='store_true', default=False)
-    parser.add_argument('--dry-run', help='Makes script print all filesystem commands that would be executed instead of actually executing them.', action='store_true', default=False)
+    parser.add_argument('--debug', help='Makes script print all filesystem commands that would be executed instead of actually executing them.', action='store_true', default=False)
     parser.add_argument('--version', help='Print version number and exit.', action='store_true', default=False)
 
-    args, roms = parser.parse_known_args()
-    roms = [os.path.splitext(rom)[0] for rom in roms]
-    if not roms:
-        roms.append('./shuffled')
-    args.roms = roms
+    args = parser.parse_args()
 
     if ((args.fullshuffle and args.basicshuffle)) or (args.singleshuffle and (args.fullshuffle or args.basicshuffle)):
         parser.print_help()

@@ -6,36 +6,21 @@ MSU-1 packs.
 Usage:
 
 1) Copy this script to a new subdirectory in the directory containing all
-   of your current MSU packs.  For example, if your MSU pack is in
-   `"MSUs\alttp_undertale\alttp_msu-1.pcm"`, the script should be in
-   `"MSUs\ALttPMSUShuffler\Main.py"`.
+   of your current MSU packs
 
-DRAG AND DROP METHOD:
+2) Copy the ALttP Randomizer ROM (with background music enabled) to this
+   directory.  The script will rename it to "shuffled.sfc".  The original name
+   is printed to "output.log" (handy for retrieving spoilers).  If you don't
+   copy the ROM before running the script, you need to rename the ROM to
+   "shuffled.sfc" yourself.  The script will warn before overwriting
+   "shuffled.sfc" if it already exists.
 
-2a) Drag one or more ALttP Randomizer ROMs (with background music enabled) on
-    top of Main.py to open the ROMs with the python script; for each ROM
-    opened this way, a shuffled MSU pack matching that ROM's name will be
-    generated next to the ROM in its original directory (with the tracklist in
-    ROMNAME-msushuffleroutput.log).
+2) Run Main.py to execute the script to delete any old pack in this directory
+   and generate a new one.  Track names picked will be saved in "output.log"
+   (cleared on reruns)
 
-2b) Open the ROM in an MSU-compatible emulator (works well with Snes9x 1.60)
-
-MANUAL METHOD:
-
-3a) Copy the ALttP Randomizer ROM (with background music enabled) to the same
-    directory as this Main.py script.  The script will rename the ROM to
-    "shuffled.sfc".  The original ROM name and tracklist is printed to
-    "shuffled-msushuffleroutput.log" (handy for retrieving spoilers).  If you
-    don't copy the ROM before running the script, you need to rename the ROM
-    to "shuffled.sfc" yourself.  The script will warn before overwriting
-    "shuffled.sfc" if it already exists.
-
-3b) Run Main.py to execute the script to delete any old pack in this directory
-    and generate a new one.  Track names picked will be saved in
-    "shuffled-msushuffleroutput.log" (cleared on reruns)
-
-3c) Load "shuffled.sfc" in an MSU-compatible emulator (works well with
-    Snes9x 1.60)
+3) Load "shuffled.sfc" in an MSU-compatible emulator (works well with
+   Snes9x 1.60)
 
 Additional options/usage notes:
 
@@ -70,8 +55,7 @@ Additional options/usage notes:
 
 - This script uses hardlinks instead of copies by default to reduce disk
   usage and increase speed; the --realcopy option can be used to create
-  real copies instead of hardlinks.  Real copies are forced if the shuffled
-  MSU pack and the source MSU packs are on different hard drives.
+  real copies instead of hardlinks.
 
 - The --dry-run option can be used to make this script print the filesystem
   commands (deleting, creating, renaming files) it would have executed
