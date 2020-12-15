@@ -77,6 +77,12 @@ Additional options/usage notes:
   other options), the shuffled MSU pack is generated in a higan-friendly
   subdirectory "./higan.sfc/"
 
+- Searches the parent directory of the directory containing the script for
+  all MSU packs to be included in the shuffler by default, but will skip
+  any tracks with "disabled" (case-insensitive) in the directory name or
+  file name; useful for keeping tracks hidden from the shuffler without
+  needing to move them out of the collection entirely.
+
  Debugging options (not necessary for normal use):
 
 - This script uses hardlinks instead of copies by default to reduce disk

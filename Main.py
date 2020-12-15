@@ -10,7 +10,7 @@ import sys
 import pprint
 import sched, time
 
-__version__ = '0.7'
+__version__ = '0.7.1'
 
 # Creates a shuffled MSU-1 pack for ALttP Randomizer from one or more source
 # MSU-1 packs.
@@ -88,6 +88,12 @@ __version__ = '0.7'
 # - If run in the command line as "python Main.py --higan" (along with any
 #   other options), the shuffled MSU pack is generated in a higan-friendly
 #   subdirectory "./higan.sfc/"
+#
+# - Searches the parent directory of the directory containing the script for
+#   all MSU packs to be included in the shuffler by default, but will skip
+#   any tracks with "disabled" (case-insensitive) in the directory name or
+#   file name; useful for keeping tracks hidden from the shuffler without
+#   needing to move them out of the collection entirely.
 #
 #  Debugging options (not necessary for normal use):
 #
@@ -362,9 +368,10 @@ def build_index(args):
     allpacks = list()
     for path in Path(searchdir).rglob('*.pcm'):
         pack = os.path.dirname(str(path))
-        name = os.path.basename(str(path))[:8]
-        if pack not in allpacks and name != "shuffled":
-            allpacks.append(pack)
+        if pack.lower().find('disabled') == -1:
+            name = os.path.basename(str(path))[:8]
+            if pack not in allpacks and name != "shuffled":
+                allpacks.append(pack)
 
     if not allpacks:
         print("ERROR: Couldn't find any MSU packs in " + os.path.abspath(str(searchdir)))
@@ -374,17 +381,22 @@ def build_index(args):
         for track in list(range(1, 62)):
             foundtracks = list()
             for path in Path(pack).rglob(f"*-{track}.pcm"):
-                foundtracks.append(str(path))
+                trackname = os.path.basename(str(path))
+                if trackname.lower().find('disabled') == -1:
+                    foundtracks.append(str(path))
 
             #For extended MSU packs, use the backups
             if not args.basicshuffle and not args.fullshuffle:
                 if not foundtracks and track in extendedmsutracks:
                     backuptrack = extendedbackupdict[track]
                     for path in Path(pack).rglob(f"*-{backuptrack}.pcm"):
-                        foundtracks.append(str(path))
+                        trackname = os.path.basename(str(path))
+                        if trackname.lower().find('disabled') == -1:
+                            foundtracks.append(str(path))
 
             trackindex.setdefault(track, []).extend(foundtracks)
 
+    #Uncomment to print index for debugging
     #pp = pprint.PrettyPrinter()
     #pp.pprint(trackindex)
 
@@ -436,7 +448,11 @@ def generate_shuffled_msu(args, rompath):
     global loopingfoundtracks
     global shuffledloopingfoundtracks
 
-    foundtracks = sorted(trackindex.keys())
+    foundtracks = list()
+    for key in trackindex:
+        if trackindex[key]:
+            foundtracks.append(key)
+    foundtracks = sorted(foundtracks)
 
     #Separate this list into looping tracks and non-looping tracks, and make a
     #shuffled list of the found looping tracks.
