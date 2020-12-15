@@ -40,9 +40,19 @@ __version__ = '0.7'
 #        the ROM to "shuffled.sfc" yourself.  The script will warn before
 #        overwriting "shuffled.sfc" if it already exists.
 #
-#     2) Run Main.py to execute the script to delete any old pack in this
+#     2) Run **Main.py** to execute the script to delete any old pack in this
 #        directory and generate a new one.  Track names picked will be saved in
 #        "shuffled-msushuffleroutput.log" (cleared on reruns)
+#
+#     3) LIVE RESHUFFLE METHOD (EXPERIMENTAL): Instead of simply running 
+#        **Main.py**, run **LiveReshuffle.py** or run in the command line as
+#        "python Main.py --live 10" (or any other positive integer) to
+#        generate a new shuffled MSU pack every few seconds.  Will skip
+#        replacing any tracks currently being played.  Best if used without
+#        the --realcopy option, and best if the shuffled MSU pack and source
+#        packs are all on the same hard drive, to avoid excessive disk usage.
+#        Edit **liveupdate.py** to set a different reshuffle interval than the
+#        10 second default.
 #
 # 4) Load the ROM in an MSU-compatible emulator (works well with Snes9x 1.60)
 #
@@ -78,13 +88,6 @@ __version__ = '0.7'
 # - If run in the command line as "python Main.py --higan" (along with any
 #   other options), the shuffled MSU pack is generated in a higan-friendly
 #   subdirectory "./higan.sfc/"
-#
-# - EXPERIMENTAL: If run in the command line as "python Main.py --live 10",
-#   will reshuffle the entire MSU pack every 10 seconds, good if you want a
-#   whole bunch of different overworld themes to play throughout your run.
-#   Will skip replacing any tracks currently being played.  Best if used
-#   without the --realcopy option, and if the shuffled MSU pack and source
-#   packs are all on the same hard drive, to avoid excessive disk usage.
 #
 #  Debugging options (not necessary for normal use):
 #
@@ -346,6 +349,7 @@ def copy_track(logger, srcpath, dst, rompath, dry_run, higan, forcerealcopy, liv
 # Index format:
 # index[2] = ['../msu1/track-2.pcm', '../msu2/track-2.pcm']
 def build_index(args):
+    print("Building index, this should take a few seconds.")
 
     global trackindex
 
