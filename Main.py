@@ -7,6 +7,7 @@ import re
 import shutil
 import glob
 import sys
+import pprint
 
 __version__ = '0.6'
 
@@ -276,14 +277,18 @@ def delete_old_msu(args, rompath):
             else:
                 os.remove(str(path))
 
-def copy_track(logger, args, srcpath, src, dst, printsrc, rompath):
+def copy_track(logger, args, srcpath, src, dst, rompath):
     if args.higan:
         dstpath = higandir + "/track-" + str(dst) + ".pcm"
     else:
         dstpath = f"{rompath}-{dst}.pcm"
 
-    if printsrc:
-        srctitle = titles[src-1]
+    for match in re.finditer(r'\d+', os.path.basename(srcpath)):
+        pass
+    srctrack = int(match.group(0))
+
+    if srctrack != dst:
+        srctitle = titles[srctrack-1]
         shorttitle = srctitle[4:]
         logger.info(titles[dst-1] + ': (' + shorttitle.strip() + ') ' + srcpath)
     else:
@@ -295,91 +300,27 @@ def copy_track(logger, args, srcpath, src, dst, printsrc, rompath):
         else:
             os.link(srcpath, dstpath)
 
-def pick_random_track(logger, args, src, dst, printsrc, rompath):
-    match = "*-" + str(src) + ".pcm"
+def pick_random_track(logger, args, src, dst, rompath, index):
+    winner = random.choice(index[src])
+    copy_track(logger, args, winner, src, dst, rompath)
 
-    l = list()
+# Build a dictionary mapping each possible track number to all matching tracks
+# in the search directory; do this once, to avoid excess searching later.
+#
+# In default mode (non-basic/non-full), since we want non-extended MSU packs to
+# still have their dungeon/boss music represented in the shuffled pack, match
+# the generic backups for each of the extended MSU tracks.
+#
+# Index format:
+# index[2] = ['../msu1/track-2.pcm', '../msu2/track-2.pcm']
+def build_index(args):
+    index = {}
     if (args.singleshuffle):
         searchdir = args.singleshuffle
     else:
         searchdir = '../'
-
-    for path in Path(searchdir).rglob(match):
-        l.append(path)
-
-    if not l:
-        #This should never happen
-        logger.info("Failed to find " + match + " in " + searchdir)
-        return;
-
-    winner = random.choice(l)
-    copy_track(logger, args, str(winner), src, dst, printsrc, rompath)
-
-def generate_shuffled_msu(args, rompath):
-    logger = logging.getLogger('')
-
-    if (not os.path.exists(f'{rompath}.msu')):
-        logger.info(f"'{rompath}.msu' doesn't exist, creating it.")
-        if (not args.dry_run):
-            with open(f'{rompath}.msu', 'w'):
-                pass
 
     #For all packs in the target directory, make a list of found track numbers.
-    if (args.singleshuffle):
-        searchdir = args.singleshuffle
-    else:
-        searchdir = '../'
-
-    foundtracks = list()
-    for path in Path(searchdir).rglob('*.pcm'):
-        for match in re.finditer(r'\d+', os.path.basename(str(path))):
-            pass
-        if (int(match.group(0)) not in foundtracks):
-            foundtracks.append(int(match.group(0)))
-    foundtracks = sorted(foundtracks)
-
-    #Separate this list into looping tracks and non-looping tracks, and make a
-    #shuffled list of the found looping tracks.
-    if (args.basicshuffle or args.fullshuffle):
-        loopingfoundtracks = [i for i in foundtracks if i not in nonloopingtracks]
-    else:
-        nongenericshufflelist = nonloopingtracks + extendedmsutracks
-        loopingfoundtracks = [i for i in foundtracks if i not in nongenericshufflelist]
-
-    shuffledloopingfoundtracks = loopingfoundtracks.copy()
-    random.shuffle(shuffledloopingfoundtracks)
-    nonloopingfoundtracks = [i for i in foundtracks if i in nonloopingtracks]
-
-    #For all found non-looping tracks, pick a random track with a matching
-    #track number from a random pack in the target directory.
-    logger.info("Non-looping tracks:")
-    for i in nonloopingfoundtracks:
-        srcstr = str(i)
-        pick_random_track(logger, args, i, i, False, rompath)
-
-    #For all found looping tracks, pick a random track from a random pack
-    #in the target directory, with a matching track number by default, or
-    #a shuffled different looping track number if fullshuffle or
-    #singleshuffle are enabled.
-    logger.info("Looping tracks:")
-    for i in loopingfoundtracks:
-        if (args.fullshuffle or args.singleshuffle):
-            dst = i
-            src = shuffledloopingfoundtracks[loopingfoundtracks.index(i)]
-            printsrc = True
-        else:
-            dst = i
-            src = i
-            printsrc = False
-        pick_random_track(logger, args, src, dst, printsrc, rompath)
-
-    if (args.basicshuffle or args.fullshuffle):
-        logger.info('Done.')
-        return
-
-    logger.info("Extended MSU tracks:")
-
-    #Make a list of all directories with .pcm tracks except this one
     allpacks = list()
     for path in Path(searchdir).rglob('*.pcm'):
         pack = os.path.dirname(str(path))
@@ -391,35 +332,66 @@ def generate_shuffled_msu(args, rompath):
         logger.info("ERROR: Couldn't find any MSU packs in " + os.path.abspath(str(searchdir)))
         return
 
-    #For each extended track, pick a random directory, if it has either the
-    #corresponding extended track or backup generic track, pick it, otherwise
-    #pick another random directory.  Try 1000 times then give up (should only
-    #fail if running this script where the parent directory contains no
-    #completed MSU packs)
-    for i in extendedmsutracks:
-        foundtrack = ""
-        tries = 0
-        src = i
-        printsrc = False
-        while tries < 1000 and not foundtrack:
-            tries += 1
-            randompack = random.choice(allpacks)
-            for path in Path(randompack).rglob("*-" + str(i) + ".pcm"):
-                foundtrack = path
-                break
+    for pack in allpacks:
+        for track in list(range(1, 62)):
+            foundtracks = list()
+            for path in Path(pack).rglob(f"*-{track}.pcm"):
+                foundtracks.append(str(path))
 
-            if not foundtrack:
-                src = extendedbackupdict[i]
-                printsrc = True
-                for path in Path(randompack).rglob("*-" + str(src) + ".pcm"):
-                    foundtrack = path
-                    break
+            #For extended MSU packs, use the backups
+            if not args.basicshuffle and not args.fullshuffle:
+                if not foundtracks and track in extendedmsutracks:
+                    backuptrack = extendedbackupdict[track]
+                    for path in Path(pack).rglob(f"*-{backuptrack}.pcm"):
+                        foundtracks.append(str(path))
 
-        if not foundtrack:
-            logger.info("ERROR: Couldn't find extended track " + str(i) + " or generic track " + str(extendedbackupdict[i]) + " in " + os.path.abspath(str(searchdir)))
-            return
+            index.setdefault(track, []).extend(foundtracks)
 
-        copy_track(logger, args, str(foundtrack), src, i, printsrc, rompath)
+    #pp = pprint.PrettyPrinter()
+    #pp.pprint(index)
+
+    return index
+
+def generate_shuffled_msu(args, rompath, index):
+    logger = logging.getLogger('')
+
+    if (not os.path.exists(f'{rompath}.msu')):
+        logger.info(f"'{rompath}.msu' doesn't exist, creating it.")
+        if (not args.dry_run):
+            with open(f'{rompath}.msu', 'w'):
+                pass
+
+    foundtracks = sorted(index.keys())
+
+    #Separate this list into looping tracks and non-looping tracks, and make a
+    #shuffled list of the found looping tracks.
+    loopingfoundtracks = [i for i in foundtracks if i not in nonloopingtracks]
+
+    shuffledloopingfoundtracks = loopingfoundtracks.copy()
+    random.shuffle(shuffledloopingfoundtracks)
+    nonloopingfoundtracks = [i for i in foundtracks if i in nonloopingtracks]
+
+    #For all found non-looping tracks, pick a random track with a matching
+    #track number from a random pack in the target directory.
+    logger.info("Non-looping tracks:")
+    for i in nonloopingfoundtracks:
+        pick_random_track(logger, args, i, i, rompath, index)
+
+    #For all found looping tracks, pick a random track from a random pack
+    #in the target directory, with a matching track number by default, or
+    #a shuffled different looping track number if fullshuffle or
+    #singleshuffle are enabled.
+    logger.info("Looping tracks:")
+    for i in loopingfoundtracks:
+        if (args.fullshuffle or args.singleshuffle):
+            dst = i
+            src = shuffledloopingfoundtracks[loopingfoundtracks.index(i)]
+        else:
+            dst = i
+            src = i
+        pick_random_track(logger, args, src, dst, rompath, index)
+
+    logger.info('Done.')
 
 def main(args):
     if args.version:
@@ -434,8 +406,8 @@ def main(args):
         except:
             args.forcerealcopy = True
         delete_old_msu(args, rom)
-        generate_shuffled_msu(args, rom)
-    return
+        index = build_index(args)
+        generate_shuffled_msu(args, rom, index)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
