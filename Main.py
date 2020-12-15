@@ -51,8 +51,8 @@ __version__ = '0.7'
 #        replacing any tracks currently being played.  Best if used without
 #        the --realcopy option, and best if the shuffled MSU pack and source
 #        packs are all on the same hard drive, to avoid excessive disk usage.
-#        Edit **liveupdate.py** to set a different reshuffle interval than the
-#        10 second default.
+#        Edit **LiveReshuffle.py** to set a different reshuffle interval than
+#        the 10 second default.
 #
 # 4) Load the ROM in an MSU-compatible emulator (works well with Snes9x 1.60)
 #
