@@ -435,11 +435,8 @@ def shuffle_all_tracks(rompath, fullshuffle, singleshuffle, dry_run, higan, forc
         copy_track(logger, winner, dst, rompath, dry_run, higan, forcerealcopy, live)
     if live:
         shuffletime = datetime.datetime.now() - shufflestarttime
-        if int(live) == 1:
-            print(f"Reshuffling MSU pack every second, press ctrl+c or close the window to stop reshuffling. (shuffled in {shuffletime.seconds}.{shuffletime.microseconds}s)")
-        else:
-            print(f"Reshuffling MSU pack every {int(live)} seconds, press ctrl+c or close the window to stop reshuffling. (shuffled in {shuffletime.seconds}.{shuffletime.microseconds}s)")
-        s.enter(int(live), 1, shuffle_all_tracks, kwargs={'rompath':rompath, 'fullshuffle':fullshuffle, 'singleshuffle':singleshuffle, 'dry_run':dry_run, 'higan':higan, 'forcerealcopy':forcerealcopy, 'live':live})
+        print("Reshuffling MSU pack every%s second%s, press ctrl+c or close the window to stop reshuffling. (shuffled in %d.%ds)" %(" " + str(int(live)) if int(live) != 1 else "", "s" if int(live) != 1 else "", shuffletime.seconds, shuffletime.microseconds))
+        s.enter(int(live), 1, shuffle_all_tracks, argument=(rompath, fullshuffle, singleshuffle, dry_run, higan, forcerealcopy, live))
 
 def generate_shuffled_msu(args, rompath):
     logger = logging.getLogger('')
@@ -469,7 +466,7 @@ def generate_shuffled_msu(args, rompath):
     nonloopingfoundtracks = [i for i in foundtracks if i in nonloopingtracks]
 
     if args.live:
-        s.enter(1, 1, shuffle_all_tracks, kwargs={'rompath':rompath, 'fullshuffle':args.fullshuffle, 'singleshuffle':args.singleshuffle, 'dry_run':args.dry_run, 'higan':args.higan, 'forcerealcopy':args.forcerealcopy, 'live':args.live})
+        s.enter(1, 1, shuffle_all_tracks, argument=(rompath, args.fullshuffle, args.singleshuffle, args.dry_run, args.higan, args.forcerealcopy, args.live))
         s.run()
     else:
         shuffle_all_tracks(rompath, args.fullshuffle, args.singleshuffle, args.dry_run, args.higan, args.forcerealcopy, args.live)
