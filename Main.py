@@ -8,6 +8,7 @@ import shutil
 import glob
 import sys
 import pprint
+import sched, time
 
 __version__ = '0.6'
 
@@ -77,6 +78,13 @@ __version__ = '0.6'
 # - If run in the command line as "python Main.py --higan" (along with any
 #   other options), the shuffled MSU pack is generated in a higan-friendly
 #   subdirectory "./higan.sfc/"
+#
+# - EXPERIMENTAL: If run in the command line as "python Main.py --live 10",
+#   will reshuffle the entire MSU pack every 10 seconds, good if you want a
+#   whole bunch of different overworld themes to play throughout your run.
+#   Will skip replacing any tracks currently being played.  Best if used
+#   without the --realcopy option, and if the shuffled MSU pack and source
+#   packs are all on the same hard drive, to avoid excess disk usage.
 #
 #  Debugging options (not necessary for normal use):
 #
@@ -219,6 +227,16 @@ extendedbackupdict = {
 
 higandir = "./higan.sfc"
 
+global trackindex
+trackindex = {}
+global nonloopingfoundtracks
+nonloopingfoundtracks = list()
+global loopingfoundtracks
+loopingfoundtracks = list()
+global shuffledloopingfoundtracks
+shuffledloopingfoundtracks = list()
+s = sched.scheduler(time.time, time.sleep)
+
 def delete_old_msu(args, rompath):
     if os.path.exists(f"{rompath}-msushuffleroutput.log"):
         os.remove(f"{rompath}-msushuffleroutput.log")
@@ -277,8 +295,8 @@ def delete_old_msu(args, rompath):
             else:
                 os.remove(str(path))
 
-def copy_track(logger, args, srcpath, src, dst, rompath):
-    if args.higan:
+def copy_track(logger, srcpath, src, dst, rompath, dry_run, higan, forcerealcopy, live):
+    if higan:
         dstpath = higandir + "/track-" + str(dst) + ".pcm"
     else:
         dstpath = f"{rompath}-{dst}.pcm"
@@ -294,15 +312,18 @@ def copy_track(logger, args, srcpath, src, dst, rompath):
     else:
         logger.info(titles[dst-1] + ': ' + srcpath)
 
-    if (not args.dry_run):
-        if (args.forcerealcopy):
-            shutil.copy(srcpath, dstpath)
-        else:
-            os.link(srcpath, dstpath)
+    if not dry_run:
+        try:
+            if (os.path.exists(dstpath)):
+                os.remove(dstpath)
 
-def pick_random_track(logger, args, src, dst, rompath, index):
-    winner = random.choice(index[src])
-    copy_track(logger, args, winner, src, dst, rompath)
+            if (forcerealcopy):
+                shutil.copy(srcpath, dstpath)
+            else:
+                os.link(srcpath, dstpath)
+        except PermissionError:
+            if not live:
+                logger.info(f"Failed to copy {srcpath} to {dstpath} during non-live update")
 
 # Build a dictionary mapping each possible track number to all matching tracks
 # in the search directory; do this once, to avoid excess searching later.
@@ -314,7 +335,9 @@ def pick_random_track(logger, args, src, dst, rompath, index):
 # Index format:
 # index[2] = ['../msu1/track-2.pcm', '../msu2/track-2.pcm']
 def build_index(args):
-    index = {}
+
+    global trackindex
+
     if (args.singleshuffle):
         searchdir = args.singleshuffle
     else:
@@ -345,37 +368,20 @@ def build_index(args):
                     for path in Path(pack).rglob(f"*-{backuptrack}.pcm"):
                         foundtracks.append(str(path))
 
-            index.setdefault(track, []).extend(foundtracks)
+            trackindex.setdefault(track, []).extend(foundtracks)
 
     #pp = pprint.PrettyPrinter()
-    #pp.pprint(index)
+    #pp.pprint(trackindex)
 
-    return index
-
-def generate_shuffled_msu(args, rompath, index):
+# args used: fullshuffle, singleshuffle, dry_run, higan, forcerealcopy, live
+def shuffle_all_tracks(rompath, fullshuffle, singleshuffle, dry_run, higan, forcerealcopy, live):
     logger = logging.getLogger('')
-
-    if (not os.path.exists(f'{rompath}.msu')):
-        logger.info(f"'{rompath}.msu' doesn't exist, creating it.")
-        if (not args.dry_run):
-            with open(f'{rompath}.msu', 'w'):
-                pass
-
-    foundtracks = sorted(index.keys())
-
-    #Separate this list into looping tracks and non-looping tracks, and make a
-    #shuffled list of the found looping tracks.
-    loopingfoundtracks = [i for i in foundtracks if i not in nonloopingtracks]
-
-    shuffledloopingfoundtracks = loopingfoundtracks.copy()
-    random.shuffle(shuffledloopingfoundtracks)
-    nonloopingfoundtracks = [i for i in foundtracks if i in nonloopingtracks]
-
     #For all found non-looping tracks, pick a random track with a matching
     #track number from a random pack in the target directory.
     logger.info("Non-looping tracks:")
     for i in nonloopingfoundtracks:
-        pick_random_track(logger, args, i, i, rompath, index)
+        winner = random.choice(trackindex[i])
+        copy_track(logger, winner, i, i, rompath, dry_run, higan, forcerealcopy, live)
 
     #For all found looping tracks, pick a random track from a random pack
     #in the target directory, with a matching track number by default, or
@@ -389,14 +395,47 @@ def generate_shuffled_msu(args, rompath, index):
         else:
             dst = i
             src = i
-        pick_random_track(logger, args, src, dst, rompath, index)
+        winner = random.choice(trackindex[src])
+        copy_track(logger, winner, src, dst, rompath, dry_run, higan, forcerealcopy, live)
+    if live:
+        s.enter(int(live), 1, shuffle_all_tracks, kwargs={'rompath':rompath, 'fullshuffle':fullshuffle, 'singleshuffle':singleshuffle, 'dry_run':dry_run, 'higan':higan, 'forcerealcopy':forcerealcopy, 'live':live})
 
-    logger.info('Done.')
+def generate_shuffled_msu(args, rompath):
+    logger = logging.getLogger('')
+
+    if (not os.path.exists(f'{rompath}.msu')):
+        logger.info(f"'{rompath}.msu' doesn't exist, creating it.")
+        if (not args.dry_run):
+            with open(f'{rompath}.msu', 'w'):
+                pass
+
+    global nonloopingfoundtracks
+    global loopingfoundtracks
+    global shuffledloopingfoundtracks
+
+    foundtracks = sorted(trackindex.keys())
+
+    #Separate this list into looping tracks and non-looping tracks, and make a
+    #shuffled list of the found looping tracks.
+    loopingfoundtracks = [i for i in foundtracks if i not in nonloopingtracks]
+
+    shuffledloopingfoundtracks = loopingfoundtracks.copy()
+    random.shuffle(shuffledloopingfoundtracks)
+    nonloopingfoundtracks = [i for i in foundtracks if i in nonloopingtracks]
+
+    if args.live:
+        s.enter(1, 1, shuffle_all_tracks, kwargs={'rompath':rompath, 'fullshuffle':args.fullshuffle, 'singleshuffle':args.singleshuffle, 'dry_run':args.dry_run, 'higan':args.higan, 'forcerealcopy':args.forcerealcopy, 'live':args.live})
+        s.run()
+    else:
+        shuffle_all_tracks(rompath, args.fullshuffle, args.singleshuffle, args.dry_run, args.higan, args.forcerealcopy, args.live)
+        logger.info('Done.')
 
 def main(args):
     if args.version:
         print("ALttPMSUShuffler version " + __version__)
         return
+
+    build_index(args)
 
     for rom in roms:
         args.forcerealcopy = args.realcopy
@@ -405,9 +444,12 @@ def main(args):
             os.path.commonpath([os.path.abspath(rom), __file__])
         except:
             args.forcerealcopy = True
+
+        if args.live and args.forcerealcopy:
+            print("WARNING: live updates with real copies will cause a LOT of disk usage.")
+
         delete_old_msu(args, rom)
-        index = build_index(args)
-        generate_shuffled_msu(args, rom, index)
+        generate_shuffled_msu(args, rom)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -418,6 +460,7 @@ if __name__ == '__main__':
     parser.add_argument('--higan', help='Creates files in higan-friendly directory structure.', action='store_true', default=False)
     parser.add_argument('--realcopy', help='Creates real copies of the source tracks instead of hardlinks', action='store_true', default=False)
     parser.add_argument('--dry-run', help='Makes script print all filesystem commands that would be executed instead of actually executing them.', action='store_true', default=False)
+    parser.add_argument('--live', help='The interval at which to re-shuffle the entire pack, in seconds; will skip tracks currently in use.')
     parser.add_argument('--version', help='Print version number and exit.', action='store_true', default=False)
 
     args, roms = parser.parse_known_args()
