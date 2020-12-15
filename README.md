@@ -67,6 +67,13 @@ Additional options/usage notes:
   other options), the shuffled MSU pack is generated in a higan-friendly
   subdirectory "./higan.sfc/"
 
+- EXPERIMENTAL: If run in the command line as "python Main.py --live 10",
+  will reshuffle the entire MSU pack every 10 seconds, good if you want a
+  whole bunch of different overworld themes to play throughout your run.
+  Will skip replacing any tracks currently being played.  Best if used
+  without the --realcopy option, and if the shuffled MSU pack and source
+  packs are all on the same hard drive, to avoid excessive disk usage.
+
  Debugging options (not necessary for normal use):
 
 - This script uses hardlinks instead of copies by default to reduce disk

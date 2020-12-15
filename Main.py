@@ -10,7 +10,7 @@ import sys
 import pprint
 import sched, time
 
-__version__ = '0.6'
+__version__ = '0.7'
 
 # Creates a shuffled MSU-1 pack for ALttP Randomizer from one or more source
 # MSU-1 packs.
@@ -19,8 +19,8 @@ __version__ = '0.6'
 #
 # 1) Copy this script to a new subdirectory in the directory containing all
 #    of your current MSU packs.  For example, if your MSU pack is in
-#    "MSUs\alttp_undertale\alttp_msu-1.pcm", the script should be in
-#    "MSUs\ALttPMSUShuffler\Main.py".
+#    `"MSUs\alttp_undertale\alttp_msu-1.pcm"`, the script should be in
+#    `"MSUs\ALttPMSUShuffler\Main.py"`.
 #
 # 2) DRAG AND DROP METHOD:
 #
@@ -84,7 +84,7 @@ __version__ = '0.6'
 #   whole bunch of different overworld themes to play throughout your run.
 #   Will skip replacing any tracks currently being played.  Best if used
 #   without the --realcopy option, and if the shuffled MSU pack and source
-#   packs are all on the same hard drive, to avoid excess disk usage.
+#   packs are all on the same hard drive, to avoid excessive disk usage.
 #
 #  Debugging options (not necessary for normal use):
 #
@@ -227,6 +227,9 @@ extendedbackupdict = {
 
 higandir = "./higan.sfc"
 
+# Globals used by the scheduled reshuffle in live mode (couldn't figure out
+# a better way to pass dicts/lists to shuffle_all_tracks when called by
+# the scheduler)
 global trackindex
 trackindex = {}
 global nonloopingfoundtracks
@@ -238,8 +241,11 @@ shuffledloopingfoundtracks = list()
 s = sched.scheduler(time.time, time.sleep)
 
 def delete_old_msu(args, rompath):
-    if os.path.exists(f"{rompath}-msushuffleroutput.log"):
-        os.remove(f"{rompath}-msushuffleroutput.log")
+    try:
+        if os.path.exists(f"{rompath}-msushuffleroutput.log"):
+            os.remove(f"{rompath}-msushuffleroutput.log")
+    except PermissionError:
+        print(f"WARNING: Failed to clear old logfile {rompath}-msushuffleroutput.log")
 
     logger = logging.getLogger('')
     output_file_handler = logging.FileHandler(f"{rompath}-msushuffleroutput.log")
@@ -293,9 +299,12 @@ def delete_old_msu(args, rompath):
             if (args.dry_run):
                 logger.info("DRY RUN: Would remove " + str(path))        
             else:
-                os.remove(str(path))
+                try:
+                    os.remove(str(path))
+                except PermissionError:
+                    logger.info(f"WARNING: Failed to remove {path}")
 
-def copy_track(logger, srcpath, src, dst, rompath, dry_run, higan, forcerealcopy, live):
+def copy_track(logger, srcpath, dst, rompath, dry_run, higan, forcerealcopy, live):
     if higan:
         dstpath = higandir + "/track-" + str(dst) + ".pcm"
     else:
@@ -308,9 +317,11 @@ def copy_track(logger, srcpath, src, dst, rompath, dry_run, higan, forcerealcopy
     if srctrack != dst:
         srctitle = titles[srctrack-1]
         shorttitle = srctitle[4:]
-        logger.info(titles[dst-1] + ': (' + shorttitle.strip() + ') ' + srcpath)
+        if not live:
+            logger.info(titles[dst-1] + ': (' + shorttitle.strip() + ') ' + srcpath)
     else:
-        logger.info(titles[dst-1] + ': ' + srcpath)
+        if not live:
+            logger.info(titles[dst-1] + ': ' + srcpath)
 
     if not dry_run:
         try:
@@ -352,7 +363,7 @@ def build_index(args):
             allpacks.append(pack)
 
     if not allpacks:
-        logger.info("ERROR: Couldn't find any MSU packs in " + os.path.abspath(str(searchdir)))
+        print("ERROR: Couldn't find any MSU packs in " + os.path.abspath(str(searchdir)))
         return
 
     for pack in allpacks:
@@ -373,21 +384,29 @@ def build_index(args):
     #pp = pprint.PrettyPrinter()
     #pp.pprint(trackindex)
 
-# args used: fullshuffle, singleshuffle, dry_run, higan, forcerealcopy, live
 def shuffle_all_tracks(rompath, fullshuffle, singleshuffle, dry_run, higan, forcerealcopy, live):
     logger = logging.getLogger('')
     #For all found non-looping tracks, pick a random track with a matching
     #track number from a random pack in the target directory.
-    logger.info("Non-looping tracks:")
+
+    if live:
+        if int(live) == 1:
+            print("Reshuffling MSU pack every second, press ctrl+c or close the window to stop reshuffling.")
+        else:
+            print("Reshuffling MSU pack every " + str(int(live)) + " seconds, press ctrl+c or close the window to stop reshuffling.")
+    else:
+        logger.info("Non-looping tracks:")
+
     for i in nonloopingfoundtracks:
         winner = random.choice(trackindex[i])
-        copy_track(logger, winner, i, i, rompath, dry_run, higan, forcerealcopy, live)
+        copy_track(logger, winner, i, rompath, dry_run, higan, forcerealcopy, live)
 
     #For all found looping tracks, pick a random track from a random pack
     #in the target directory, with a matching track number by default, or
     #a shuffled different looping track number if fullshuffle or
     #singleshuffle are enabled.
-    logger.info("Looping tracks:")
+    if not live:
+        logger.info("Looping tracks:")
     for i in loopingfoundtracks:
         if (args.fullshuffle or args.singleshuffle):
             dst = i
@@ -396,7 +415,7 @@ def shuffle_all_tracks(rompath, fullshuffle, singleshuffle, dry_run, higan, forc
             dst = i
             src = i
         winner = random.choice(trackindex[src])
-        copy_track(logger, winner, src, dst, rompath, dry_run, higan, forcerealcopy, live)
+        copy_track(logger, winner, dst, rompath, dry_run, higan, forcerealcopy, live)
     if live:
         s.enter(int(live), 1, shuffle_all_tracks, kwargs={'rompath':rompath, 'fullshuffle':fullshuffle, 'singleshuffle':singleshuffle, 'dry_run':dry_run, 'higan':higan, 'forcerealcopy':forcerealcopy, 'live':live})
 
@@ -437,7 +456,7 @@ def main(args):
 
     build_index(args)
 
-    for rom in roms:
+    for rom in args.roms:
         args.forcerealcopy = args.realcopy
         try:
             # determine if the supplied rom is ON the same drive as the script. If not, realcopy is mandatory.
@@ -463,15 +482,28 @@ if __name__ == '__main__':
     parser.add_argument('--live', help='The interval at which to re-shuffle the entire pack, in seconds; will skip tracks currently in use.')
     parser.add_argument('--version', help='Print version number and exit.', action='store_true', default=False)
 
+    romlist = list()
     args, roms = parser.parse_known_args()
-    roms = [os.path.splitext(rom)[0] for rom in roms]
-    if not roms:
-        roms.append('./shuffled')
-    args.roms = roms
+    for rom in roms:
+        if not os.path.exists(rom):
+            print(f"ERROR: Unknown argument {rom}")
+            parser.print_help()
+            sys.exit()
+
+        romlist.append(os.path.splitext(rom)[0])
+
+    if not romlist:
+        romlist.append('./shuffled')
+
+    args.roms = romlist
 
     if ((args.fullshuffle and args.basicshuffle)) or (args.singleshuffle and (args.fullshuffle or args.basicshuffle)):
         parser.print_help()
         sys.exit()
+
+    if args.live and int(args.live) < 1:
+        print("WARNING, can't choose live updates shorter than 1 second, defaulting to 1 second")
+        args.live = 1
 
     # When shuffling a single pack, don't auto-extend non-extended packs.
     if (args.singleshuffle):
