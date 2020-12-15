@@ -9,6 +9,7 @@ import glob
 import sys
 import pprint
 import sched, time
+import datetime
 
 __version__ = '0.7.1'
 
@@ -356,6 +357,7 @@ def copy_track(logger, srcpath, dst, rompath, dry_run, higan, forcerealcopy, liv
 # index[2] = ['../msu1/track-2.pcm', '../msu2/track-2.pcm']
 def build_index(args):
     print("Building index, this should take a few seconds.")
+    buildstarttime = datetime.datetime.now()
 
     global trackindex
 
@@ -368,7 +370,7 @@ def build_index(args):
     allpacks = list()
     for path in Path(searchdir).rglob('*.pcm'):
         pack = os.path.dirname(str(path))
-        if pack.lower().find('disabled') == -1:
+        if 'disabled' not in pack.lower():
             name = os.path.basename(str(path))[:8]
             if pack not in allpacks and name != "shuffled":
                 allpacks.append(pack)
@@ -382,7 +384,7 @@ def build_index(args):
             foundtracks = list()
             for path in Path(pack).rglob(f"*-{track}.pcm"):
                 trackname = os.path.basename(str(path))
-                if trackname.lower().find('disabled') == -1:
+                if 'disabled' not in trackname.lower():
                     foundtracks.append(str(path))
 
             #For extended MSU packs, use the backups
@@ -391,7 +393,7 @@ def build_index(args):
                     backuptrack = extendedbackupdict[track]
                     for path in Path(pack).rglob(f"*-{backuptrack}.pcm"):
                         trackname = os.path.basename(str(path))
-                        if trackname.lower().find('disabled') == -1:
+                        if 'disabled' not in trackname.lower():
                             foundtracks.append(str(path))
 
             trackindex.setdefault(track, []).extend(foundtracks)
@@ -400,17 +402,16 @@ def build_index(args):
     #pp = pprint.PrettyPrinter()
     #pp.pprint(trackindex)
 
+    buildtime = datetime.datetime.now() - buildstarttime
+    print(f"Index build took {buildtime.seconds}.{buildtime.microseconds} seconds")
+
 def shuffle_all_tracks(rompath, fullshuffle, singleshuffle, dry_run, higan, forcerealcopy, live):
     logger = logging.getLogger('')
     #For all found non-looping tracks, pick a random track with a matching
     #track number from a random pack in the target directory.
+    shufflestarttime = datetime.datetime.now()
 
-    if live:
-        if int(live) == 1:
-            print("Reshuffling MSU pack every second, press ctrl+c or close the window to stop reshuffling.")
-        else:
-            print("Reshuffling MSU pack every " + str(int(live)) + " seconds, press ctrl+c or close the window to stop reshuffling.")
-    else:
+    if not live:
         logger.info("Non-looping tracks:")
 
     for i in nonloopingfoundtracks:
@@ -433,6 +434,11 @@ def shuffle_all_tracks(rompath, fullshuffle, singleshuffle, dry_run, higan, forc
         winner = random.choice(trackindex[src])
         copy_track(logger, winner, dst, rompath, dry_run, higan, forcerealcopy, live)
     if live:
+        shuffletime = datetime.datetime.now() - shufflestarttime
+        if int(live) == 1:
+            print(f"Reshuffling MSU pack every second, press ctrl+c or close the window to stop reshuffling. (shuffled in {shuffletime.seconds}.{shuffletime.microseconds}s)")
+        else:
+            print(f"Reshuffling MSU pack every {int(live)} seconds, press ctrl+c or close the window to stop reshuffling. (shuffled in {shuffletime.seconds}.{shuffletime.microseconds}s)")
         s.enter(int(live), 1, shuffle_all_tracks, kwargs={'rompath':rompath, 'fullshuffle':fullshuffle, 'singleshuffle':singleshuffle, 'dry_run':dry_run, 'higan':higan, 'forcerealcopy':forcerealcopy, 'live':live})
 
 def generate_shuffled_msu(args, rompath):
