@@ -10,8 +10,9 @@ import sys
 import pprint
 import sched, time
 import datetime
+from tempfile import TemporaryDirectory
 
-__version__ = '0.7.1'
+__version__ = '0.7.2'
 
 # Creates a shuffled MSU-1 pack for ALttP Randomizer from one or more source
 # MSU-1 packs.
@@ -314,7 +315,7 @@ def delete_old_msu(args, rompath):
                 except PermissionError:
                     logger.info(f"WARNING: Failed to remove {path}")
 
-def copy_track(logger, srcpath, dst, rompath, dry_run, higan, forcerealcopy, live):
+def copy_track(logger, srcpath, dst, rompath, dry_run, higan, forcerealcopy, live, tmpdir):
     if higan:
         dstpath = higandir + "/track-" + str(dst) + ".pcm"
     else:
@@ -335,13 +336,16 @@ def copy_track(logger, srcpath, dst, rompath, dry_run, higan, forcerealcopy, liv
 
     if not dry_run:
         try:
-            if (os.path.exists(dstpath)):
-                os.remove(dstpath)
-
+            # Use a temporary file and os.replace to get around the fact that
+            # python doesn't have an atomic copy/hardlink with overwrite.
+            tmpname = os.path.join(tmpdir, f"tmp{os.path.basename(dstpath)}")
+            
             if (forcerealcopy):
-                shutil.copy(srcpath, dstpath)
+                shutil.copy(srcpath, tmpname)
             else:
-                os.link(srcpath, dstpath)
+                os.link(srcpath, tmpname)
+
+            os.replace(tmpname, dstpath)
         except PermissionError:
             if not live:
                 logger.info(f"Failed to copy {srcpath} to {dstpath} during non-live update")
@@ -414,25 +418,26 @@ def shuffle_all_tracks(rompath, fullshuffle, singleshuffle, dry_run, higan, forc
     if not live:
         logger.info("Non-looping tracks:")
 
-    for i in nonloopingfoundtracks:
-        winner = random.choice(trackindex[i])
-        copy_track(logger, winner, i, rompath, dry_run, higan, forcerealcopy, live)
+    with TemporaryDirectory(dir='.') as tmpdir:
+        for i in nonloopingfoundtracks:
+            winner = random.choice(trackindex[i])
+            copy_track(logger, winner, i, rompath, dry_run, higan, forcerealcopy, live, tmpdir)
 
-    #For all found looping tracks, pick a random track from a random pack
-    #in the target directory, with a matching track number by default, or
-    #a shuffled different looping track number if fullshuffle or
-    #singleshuffle are enabled.
-    if not live:
-        logger.info("Looping tracks:")
-    for i in loopingfoundtracks:
-        if (args.fullshuffle or args.singleshuffle):
-            dst = i
-            src = shuffledloopingfoundtracks[loopingfoundtracks.index(i)]
-        else:
-            dst = i
-            src = i
-        winner = random.choice(trackindex[src])
-        copy_track(logger, winner, dst, rompath, dry_run, higan, forcerealcopy, live)
+        #For all found looping tracks, pick a random track from a random pack
+        #in the target directory, with a matching track number by default, or
+        #a shuffled different looping track number if fullshuffle or
+        #singleshuffle are enabled.
+        if not live:
+            logger.info("Looping tracks:")
+        for i in loopingfoundtracks:
+            if (args.fullshuffle or args.singleshuffle):
+                dst = i
+                src = shuffledloopingfoundtracks[loopingfoundtracks.index(i)]
+            else:
+                dst = i
+                src = i
+            winner = random.choice(trackindex[src])
+            copy_track(logger, winner, dst, rompath, dry_run, higan, forcerealcopy, live, tmpdir)
     if live:
         shuffletime = datetime.datetime.now() - shufflestarttime
         print("Reshuffling MSU pack every%s second%s, press ctrl+c or close the window to stop reshuffling. (shuffled in %d.%ds)" %(" " + str(int(live)) if int(live) != 1 else "", "s" if int(live) != 1 else "", shuffletime.seconds, shuffletime.microseconds))
