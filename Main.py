@@ -12,7 +12,7 @@ import sched, time
 import datetime
 from tempfile import TemporaryDirectory
 
-__version__ = '0.7.2'
+__version__ = '0.7.3'
 
 # Creates a shuffled MSU-1 pack for ALttP Randomizer from one or more source
 # MSU-1 packs.
@@ -478,8 +478,9 @@ def generate_shuffled_msu(args, rompath):
         logger.info('Done.')
 
 def main(args):
+    print("ALttPMSUShuffler version " + __version__)
+
     if args.version:
-        print("ALttPMSUShuffler version " + __version__)
         return
 
     build_index(args)
@@ -488,7 +489,7 @@ def main(args):
         args.forcerealcopy = args.realcopy
         try:
             # determine if the supplied rom is ON the same drive as the script. If not, realcopy is mandatory.
-            os.path.commonpath([os.path.abspath(rom), __file__])
+            os.path.commonpath([os.path.abspath(rom), os.path.abspath(__file__)])
         except:
             args.forcerealcopy = True
 
