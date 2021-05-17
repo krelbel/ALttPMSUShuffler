@@ -32,7 +32,7 @@ Usage:
        directory and generate a new one.  Track names picked will be saved in
        "shuffled-msushuffleroutput.log" (cleared on reruns)
 
-    3) LIVE RESHUFFLE METHOD (EXPERIMENTAL): Instead of simply running 
+    3) LIVE RESHUFFLE METHOD: Instead of simply running 
        **Main.py**, run **LiveReshuffle.py** or run in the command line as
        "python Main.py --live 10" (or any other positive integer) to
        generate a new shuffled MSU pack every few seconds.  Will skip
@@ -41,6 +41,12 @@ Usage:
        packs are all on the same hard drive, to avoid excessive disk usage.
        Edit **LiveReshuffle.py** to set a different reshuffle interval than
        the 10 second default.
+
+    4) LIVE RESHUFFLE + NOW PLAYING VIEW (EXPERIMENTAL): Run the command
+       line as "python Main.py --live 10 --nowplaying" to run in live
+       reshuffle mode (as described above) while polling qusb2snes for
+       the currently playing MSU pack, printed to console and nowplaying.txt
+       for use as an OBS streaming text source.
 
 4) Load the ROM in an MSU-compatible emulator (works well with Snes9x 1.60)
 
@@ -82,6 +88,11 @@ Additional options/usage notes:
   any tracks with "disabled" (case-insensitive) in the directory name or
   file name; useful for keeping tracks hidden from the shuffler without
   needing to move them out of the collection entirely.
+
+- Caches the track list in ./trackindex.pkl to avoid reindexing the entire
+  collection every time the script is run.  If run in the command line as
+  "python Main.py --reindex", it will regenerate the track index.  Use this
+  to pick up any new MSU packs for the shuffler.
 
  Debugging options (not necessary for normal use):
 
