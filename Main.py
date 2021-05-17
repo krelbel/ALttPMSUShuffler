@@ -16,7 +16,7 @@ import asyncio
 import pickle
 from tempfile import TemporaryDirectory
 
-__version__ = '0.8'
+__version__ = '0.8.1'
 
 # Creates a shuffled MSU-1 pack for ALttP Randomizer from one or more source
 # MSU-1 packs.
@@ -530,7 +530,12 @@ def print_pack(path):
 
 async def query(prevtrack):
     addr = "ws://localhost:8080"
-    ws = await websockets.connect(addr, ping_timeout=None, ping_interval=None)
+    try:
+        ws = await websockets.connect(addr, ping_timeout=None, ping_interval=None)
+    except Exception as e:
+        print("Failed to connect to qusb2snes")
+        return 0
+
     devlist = {
         "Opcode": "DeviceList",
         "Space": "SNES"
@@ -539,7 +544,10 @@ async def query(prevtrack):
     reply = json.loads(await ws.recv())
     devices = reply['Results'] if 'Results' in reply and len(reply['Results']) > 0 else None
     if not devices:
-        print("Failed to connect to qusb2snes")
+        print("Failed to connect to SNES through qusb2snes")
+        await ws.close()
+        return 0
+
     device = devices[0]
     attachreq = {
         "Opcode": "Attach",
