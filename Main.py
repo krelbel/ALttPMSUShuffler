@@ -16,7 +16,7 @@ import asyncio
 import pickle
 from tempfile import TemporaryDirectory
 
-__version__ = '0.8.1'
+__version__ = '0.8.2'
 
 # Creates a shuffled MSU-1 pack for ALttP Randomizer from one or more source
 # MSU-1 packs.
@@ -454,17 +454,17 @@ def shuffle_all_tracks(rompath, fullshuffle, singleshuffle, dry_run, higan, forc
     if cooldown == 0:
         cooldown = int(live)
         with TemporaryDirectory(dir='.') as tmpdir:
-            oldwinnerlist = list()
-            if os.path.exists('winnerlist.pkl'):
-                with open('winnerlist.pkl', 'rb') as f:
+            oldwinnerdict = {}
+            if os.path.exists('winnerdict.pkl'):
+                with open('winnerdict.pkl', 'rb') as f:
                     try:
-                        oldwinnerlist = pickle.load(f)
+                        oldwinnerdict = pickle.load(f)
                     except Exception as e:
                         print("Failed to load tracklist")
-            winnerlist = list()
+            winnerdict = {}
             for i in nonloopingfoundtracks:
                 winner = random.choice(trackindex[i])
-                winnerlist.insert(i, winner)
+                winnerdict[i] = winner
                 copy_track(logger, winner, i, rompath, dry_run, higan, forcerealcopy, live, tmpdir)
 
             #For all found looping tracks, pick a random track from a random pack
@@ -484,12 +484,12 @@ def shuffle_all_tracks(rompath, fullshuffle, singleshuffle, dry_run, higan, forc
                 copied = copy_track(logger, winner, dst, rompath, dry_run, higan, forcerealcopy, live, tmpdir)
                 # if copy failed, use OLD winner...
                 if copied:
-                    winnerlist.insert(i, winner)
-                else:
-                    winnerlist.insert(i, oldwinnerlist[i])
+                    winnerdict[i] = winner
+                elif i in oldwinnerdict:
+                    winnerdict[i] = oldwinnerdict[i]
 
-            with open('winnerlist.pkl', 'wb') as f:
-                pickle.dump(winnerlist, f, pickle.HIGHEST_PROTOCOL)
+            with open('winnerdict.pkl', 'wb') as f:
+                pickle.dump(winnerdict, f, pickle.HIGHEST_PROTOCOL)
         if live and not nowplaying:
             shuffletime = datetime.datetime.now() - shufflestarttime
             print("Reshuffling MSU pack every%s second%s, press ctrl+c or close the window to stop reshuffling. (shuffled in %d.%ds)" %(" " + str(int(live)) if int(live) != 1 else "", "s" if int(live) != 1 else "", shuffletime.seconds, shuffletime.microseconds))
@@ -585,12 +585,12 @@ async def query(prevtrack):
         track = int(data[0])
 
     if track != 0 and track != prevtrack:
-        if os.path.exists('winnerlist.pkl'):
-            winnerlist = list()
-            with open('winnerlist.pkl', 'rb') as f:
+        if os.path.exists('winnerdict.pkl'):
+            winnerdict = {}
+            with open('winnerdict.pkl', 'rb') as f:
                 try:
-                    winnerlist = pickle.load(f)
-                    print_pack(str(winnerlist[track]))
+                    winnerdict = pickle.load(f)
+                    print_pack(str(winnerdict[track]))
                 except Exception as e:
                     print("Failed to load tracklist")
 
