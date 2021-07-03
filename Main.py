@@ -452,7 +452,6 @@ def shuffle_all_tracks(rompath, fullshuffle, singleshuffle, dry_run, higan, forc
         logger.info("Non-looping tracks:")
 
     if cooldown == 0:
-        cooldown = int(live)
         with TemporaryDirectory(dir='.') as tmpdir:
             oldwinnerdict = {}
             if os.path.exists('winnerdict.pkl'):
@@ -490,9 +489,11 @@ def shuffle_all_tracks(rompath, fullshuffle, singleshuffle, dry_run, higan, forc
 
             with open('winnerdict.pkl', 'wb') as f:
                 pickle.dump(winnerdict, f, pickle.HIGHEST_PROTOCOL)
-        if live and not nowplaying:
-            shuffletime = datetime.datetime.now() - shufflestarttime
-            print("Reshuffling MSU pack every%s second%s, press ctrl+c or close the window to stop reshuffling. (shuffled in %d.%ds)" %(" " + str(int(live)) if int(live) != 1 else "", "s" if int(live) != 1 else "", shuffletime.seconds, shuffletime.microseconds))
+        if live:
+            cooldown = int(live)
+            if not nowplaying:
+                shuffletime = datetime.datetime.now() - shufflestarttime
+                print("Reshuffling MSU pack every%s second%s, press ctrl+c or close the window to stop reshuffling. (shuffled in %d.%ds)" %(" " + str(int(live)) if int(live) != 1 else "", "s" if int(live) != 1 else "", shuffletime.seconds, shuffletime.microseconds))
 
     if live:
         if nowplaying:
