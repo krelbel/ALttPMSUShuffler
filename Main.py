@@ -395,6 +395,8 @@ def build_index(args):
 
     if (args.singleshuffle):
         searchdir = args.singleshuffle
+    elif args.collection:
+        searchdir = args.collection
     else:
         searchdir = '../'
 
@@ -674,6 +676,7 @@ if __name__ == '__main__':
     parser.add_argument('--live', help='The interval at which to re-shuffle the entire pack, in seconds; will skip tracks currently in use.')
     parser.add_argument('--nowplaying', help='EXPERIMENTAL: During live reshuffling, connect to qusb2snes to print the currently playing MSU pack to console and nowplaying.txt', action='store_true', default=False)
     parser.add_argument('--reindex', help='Rebuild the index of MSU packs, this must be run to pick up any new packs or moved/deleted files in existing packs!', action='store_true', default=False)
+    parser.add_argument('--collection', help='Point script at another directory to find root of MSU packs. Only useful if used with --reindex.')
     parser.add_argument('--version', help='Print version number and exit.', action='store_true', default=False)
 
     romlist = list()
